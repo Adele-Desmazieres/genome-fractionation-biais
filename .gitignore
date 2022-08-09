@@ -4,3 +4,4 @@ database/*
 log/*
 results/*
 
+scripts/iadhore/iadhore_backup.ini
