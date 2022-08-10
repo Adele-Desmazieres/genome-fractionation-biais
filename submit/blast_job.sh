@@ -42,7 +42,7 @@ blastp \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 blastp \
- -query "${FASTA}Prunus-persica-proteome" -db "${DB}PP-db" -out "${OUT}PP_vs_PP.txt" \
+ -query "${FASTA}Prunus-persica-proteome.fasta" -db "${DB}PP-db" -out "${OUT}PP_vs_PP.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 blastp \
