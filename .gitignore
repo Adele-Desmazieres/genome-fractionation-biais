@@ -3,5 +3,7 @@ tmp*/*
 database/*
 log/*
 results/*
+*test/
+
 test.sh
 scripts/iadhore/iadhore_backup.ini
