@@ -32,21 +32,21 @@ echo 'Job Id:' $SLURM_JOB_ID
 echo 'Directory:' $(pwd)
 echo '########################################'
 
-FASTA="./data/"
-DB="./database/"
-OUT="./results/blast/"
+#FASTA="data"
+#DB="database"
+#OUT="results/blast"
 
 
 blastp \
- -query "${FASTA}Malus-domestica-proteome.fasta" -db "${DB}MD-db" -out "${OUT}MD_vs_MD.txt" \
+ -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/MD-db" -out "$OUT/MD_vs_MD.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 blastp \
- -query "${FASTA}Prunus-persica-proteome.fasta" -db "${DB}PP-db" -out "${OUT}PP_vs_PP.txt" \
+ -query "$DATA/Prunus-persica-proteome.fasta" -db "$DB/PP-db" -out "$OUT/PP_vs_PP.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 blastp \
- -query "${FASTA}Malus-domestica-proteome.fasta" -db "${DB}PP-db" -out "${OUT}MD_vs_PP.txt" \
+ -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/PP-db" -out "$OUT/MD_vs_PP.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 
