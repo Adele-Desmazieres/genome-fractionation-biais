@@ -21,13 +21,13 @@ id	genome_x	list_x	parent	genome_y	list_y	level	number_of_anchorpoints	profile_l
 """
 
 df_multiplicons = pd.read_csv(IN + "multiplicons.txt", sep='\t', index_col='id')
-print(df_multiplicons[:3], "\nlen:", len(df_multiplicons))
+#print(df_multiplicons[:3], "\nlen:", len(df_multiplicons))
 
 """Affichage du tableau du nbr de gènes homologues entre chaque chromosome. """
 tmp = pd.concat( [ df_multiplicons['list_x'], df_multiplicons['list_y'] ] )
 chromosomes = list( pd.unique(tmp)) 
 chromosomes = sorted(chromosomes)
-print(chromosomes, "\n")
+#print(chromosomes, "\n")
 
 table_nb_anchors = [[0 for x in range(len(chromosomes))] for x in range(len(chromosomes))]  # table de 0 de taille n*n 
 #print(table_nb_anchors)
@@ -66,14 +66,14 @@ fig=go.Figure(data=[heat], layout=layout)
 fig.update_xaxes(side="top")
 
 fig.write_html(OUT + "anchors_chr_pair.html")
-fig.show()
+#fig.show()
 
 
 
 """Creation de la df des triplets de chromosomes dont le nbr d'ancres est superieur à un seuil"""
 MDchr = chromosomes[:17]
 PPchr = chromosomes[17:]
-print(MDchr, "\n", PPchr, sep='')
+#print(MDchr, "\n", PPchr, sep='')
 
 df_triplets = pd.DataFrame(columns=['PP', 'MD1', 'MD2', 'anchorpoints_1', 'anchorpoints_2'])
 
@@ -116,7 +116,7 @@ def remplissage_df_triplets(table_nb_anchors, chromosomes, df) :
 
 
 df_triplets = remplissage_df_triplets(table_nb_anchors, chromosomes, df_triplets)
-print(df_triplets)
+#print(df_triplets)
 
 """
 Lecture et traitement de la table des multiplicon_pairs :
@@ -128,7 +128,7 @@ df_pairs.drop(['code'], axis=1, inplace=True) # supprime la colonne 'code'
 # jointure pour avoir les noms de chromosome de chaque gene
 df_pairs_chr = df_pairs.join(df_multiplicons[['list_x', 'list_y']], on='multiplicon')
 df_pairs_chr.rename(columns={'list_x':'chr_x', 'list_y':'chr_y'}, inplace=True)
-print(df_pairs_chr[1000:1010])
+#print(df_pairs_chr[1000:1010])
 
 # construction de la liste des triplets de genes chez les chromosomes du triplet
 def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
@@ -220,13 +220,14 @@ def display_graph_fractionation(df_display, triplet) :
                     yaxis_range=[-1, 101] )
     
     fig.write_html(OUT + MD1 + "_" + MD2 + "_" + PP + ".html")
-    fig.show()
+    #fig.show()
 
 
 """Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
 def analysis_each_triplet(df_triplets) :
     for triplet in df_triplets.to_dict('records') :
        analysis_one_triplet(triplet)
+       print()
 
 """Graphe le gene fractionation d'un triplet et réalise son test statistique"""
 def analysis_one_triplet(triplet) :
@@ -260,7 +261,7 @@ def test(df_triplets, PP) :
 if __name__=="__main__" :
     
     # lance l'analyse de tous les triplets trouvés selon le nbr de gènes similaires
-    #analysis_each_triplet(df_triplets)
+    analysis_each_triplet(df_triplets)
 
     # lance l'analyse d'un triplet
-    test(df_triplets, "Pp03")
+    #test(df_triplets, "Pp03")
