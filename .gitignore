@@ -1,7 +1,7 @@
 data/*
 database/
 results/
-log/
+log/*
 *tmp*
 *test*
 
