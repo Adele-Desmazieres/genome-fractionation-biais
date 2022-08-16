@@ -3,6 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from scipy.stats import wilcoxon
 import numpy as np
+import sys
 
 # supprime les avertissements de copies de dataframe
 # TODO : comprendre et supprimer correctement cet avertissement
@@ -10,6 +11,9 @@ pd.options.mode.chained_assignment = None
 
 IN = "results/iadhore/"
 OUT = "results/python/"
+if len(sys.argv) >= 2 and sys.argv[1] == '1' :
+    IN = "results_test/iadhore/"
+    OUT = "results_test/python/"
 
 WINDOW_SIZE = 90 # nombre de gènes dans la fenêtre glissante
 ANCHORS_MIN = 800 # nombre de gènes similaires minimum entre deux chromosomes homologues
@@ -20,7 +24,6 @@ ALPHA = 0.05 # risque alpha=5% pour le test statistique
 Lecture et traitement de la table des multiplicons :
 id	genome_x	list_x	parent	genome_y	list_y	level	number_of_anchorpoints	profile_length	begin_x	end_x	begin_y	end_y	is_redundant
 """
-
 df_multiplicons = pd.read_csv(IN + "multiplicons.txt", sep='\t', index_col='id')
 #print(df_multiplicons[:3], "\nlen:", len(df_multiplicons))
 
@@ -243,7 +246,7 @@ def analysis_one_triplet(triplet) :
     df_genes_triplet = pd.DataFrame()
     df_genes_triplet = make_df_genes_triplet(triplet.get('PP'), triplet.get('MD1'), triplet.get('MD2'), df_pairs_chr)
     df_fractionation = make_df_fractionation(df_genes_triplet)
-    
+
     # suppression des NaN des données de pourcentage de conservation des gènes
     df_display = df_fractionation.dropna(subset=['rate_MD1', 'rate_MD2'])
 
