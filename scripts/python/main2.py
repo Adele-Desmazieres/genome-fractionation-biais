@@ -8,11 +8,12 @@ import numpy as np
 # TODO : comprendre et supprimer correctement les avertissements
 pd.options.mode.chained_assignment = None
 
-IN = "../../results/iadhore/all/"
+IN = "../../results/iadhore/"
 OUT = "../../results/python/"
+
 WINDOW_SIZE = 90 # nombre de gènes dans la fenêtre glissante
-ANCHORS_MIN = 800
-ALPHA = 0.05
+ANCHORS_MIN = 800 # nombre de gènes similaires minimum entre deux chromosomes homologues
+ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 
 """
@@ -259,9 +260,12 @@ def test(df_triplets, PP) :
 
 """MAIN"""
 if __name__=="__main__" :
+    print("Python main: running...")
     
     # lance l'analyse de tous les triplets trouvés selon le nbr de gènes similaires
     analysis_each_triplet(df_triplets)
 
     # lance l'analyse d'un triplet
     #test(df_triplets, "Pp03")
+
+    print("Python main: done.")
