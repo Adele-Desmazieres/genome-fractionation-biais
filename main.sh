@@ -18,6 +18,7 @@ fi
 
 # TODO : ajouter une commande pour créer l'arborescence de dossiers si nécessaire
 
+
 # crée les bases de données nécessaires au blast
 printf "\n### MAKEBLASTDB ###"
 makeblastdb -in $DATA/Prunus-persica-proteome.fasta -dbtype prot -out $DB/PP-db
@@ -33,7 +34,8 @@ sbatch --wait --export=ALL,DATA=$DATA,DB=$DB,OUT="$RES/blast" $SUBMIT/blast_job.
 cat $RES/blast/*.txt > $RES/blast/all_vs_all.txt
 
 # déplace les fichiers d'entrée de DATA dans data_tmp pour que iadhore les choppe là-bas sans avoir à modifier son path
-# TODO : s'assurer que tmp existe ?
+# TODO : s'assurer que tmp existe et est vide
+rm -r tmp/blast/* tmp/data/*
 cp $RES/blast/* tmp/blast/
 cp $DATA/MD_lst/* tmp/data/MD_lst
 cp $DATA/PP_lst/* tmp/data/PP_lst
