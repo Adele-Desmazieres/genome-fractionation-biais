@@ -5,11 +5,11 @@ from scipy.stats import wilcoxon
 import numpy as np
 
 # supprime les avertissements de copies de dataframe
-# TODO : comprendre et supprimer correctement les avertissements
+# TODO : comprendre et supprimer correctement cet avertissement
 pd.options.mode.chained_assignment = None
 
-IN = "../../results/iadhore/"
-OUT = "../../results/python/"
+IN = "results/iadhore/"
+OUT = "results/python/"
 
 WINDOW_SIZE = 90 # nombre de gènes dans la fenêtre glissante
 ANCHORS_MIN = 800 # nombre de gènes similaires minimum entre deux chromosomes homologues
@@ -203,7 +203,7 @@ def make_df_fractionation(df_genes) :
 
 
 """Affiche le graphique du taux de conservation de genes au sein de 2 chromosomes dupliqués"""
-def display_graph_fractionation(df_display, triplet) :
+def display_graph_fractionation(df_display, triplet, test_res) :
     MD1 = triplet.get("MD1")
     MD2 = triplet.get("MD2")
     PP = triplet.get("PP")
@@ -219,8 +219,14 @@ def display_graph_fractionation(df_display, triplet) :
                     title="Fractionation biais between " + MD1 + " and " + MD2,
                     xaxis_range=[0, len(df)],
                     yaxis_range=[-1, 101] )
-    
-    fig.write_html(OUT + MD1 + "_" + MD2 + "_" + PP + ".html")
+
+    fig.add_annotation(text=str(test_res),
+                    xanchor='left',
+                    yanchor='bottom',
+                    font={'size':17, 'color':'black'},
+                    x=0, y=0, showarrow=False)
+
+    fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
     #fig.show()
 
 
@@ -230,20 +236,23 @@ def analysis_each_triplet(df_triplets) :
        analysis_one_triplet(triplet)
        print()
 
+
 """Graphe le gene fractionation d'un triplet et réalise son test statistique"""
 def analysis_one_triplet(triplet) :
     # traitement des données
     df_genes_triplet = pd.DataFrame()
     df_genes_triplet = make_df_genes_triplet(triplet.get('PP'), triplet.get('MD1'), triplet.get('MD2'), df_pairs_chr)
     df_fractionation = make_df_fractionation(df_genes_triplet)
+    
     # suppression des NaN des données de pourcentage de conservation des gènes
     df_display = df_fractionation.dropna(subset=['rate_MD1', 'rate_MD2'])
 
     # affichage des données
     print(triplet)
     #print(df_display)
-    interpretation_test(df_display)
-    display_graph_fractionation(df_display, triplet)
+    test_res = interpretation_test(df_display)
+    display_graph_fractionation(df_display, triplet, test_res)
+
 
 """Réalise et interprete le test statistique wilcoxons"""
 def interpretation_test(df_display) :
@@ -251,6 +260,8 @@ def interpretation_test(df_display) :
     print(res)
     if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
     else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    return res
+
 
 """test pour le premier triplet de la df contenant PP comme chromosome"""
 def test(df_triplets, PP) :
@@ -265,7 +276,7 @@ if __name__=="__main__" :
     # lance l'analyse de tous les triplets trouvés selon le nbr de gènes similaires
     analysis_each_triplet(df_triplets)
 
-    # lance l'analyse d'un triplet
+    # lance l'analyse d'un seul triplet pour tester
     #test(df_triplets, "Pp03")
 
     print("Python main: done.")
