@@ -1,6 +1,7 @@
 #!/bin/bash
 
-TEST=$1
+TEST=$1 # si =1 lance les commandes sur les dossiers_test
+FORCED=$2 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
 
 # variables de chemins
 DATA="data"
@@ -16,6 +17,11 @@ then
     RES="${RES}_test"
 fi
 
+# supprime les résultats précédents si l'option forced vaut 1
+if [[ FORCED -eq 1 ]]
+then
+    rm -r $DB $RES
+fi
 
 # crée l'arborescence de dossiers si elle n'existe pas
 mkdir -p $DB $RES/{blast,iadhore,python}
@@ -58,8 +64,11 @@ if [[ ! "$(ls -A $RES/iadhore)" ]]
 then
     printf "\n### IADHORE ###\n"
     # déplace les fichiers d'entrée de DATA dans TMP/data pour que iadhore les choppe là-bas sans avoir à modifier son input path
+    if [[ -d $TMP ]]
+    then
+        rm -r $TMP
+    fi
     mkdir -p $TMP/{blast,data,iadhore}
-    rm -r $TMP/blast/* $TMP/data/*
     cp -r $RES/blast/* $TMP/blast/
     cp -r $DATA/MD_lst $TMP/data/MD_lst
     cp -r $DATA/PP_lst $TMP/data/PP_lst
@@ -78,6 +87,7 @@ then
     
     printf "iadhore: done\n"
 fi
+# TODO ? ajouter rm tmp pour supprimer le dossier temporaire ?
 
 
 # lance le script python
