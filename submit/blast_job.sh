@@ -38,15 +38,15 @@ echo '########################################'
 
 
 blastp \
- -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/MD-db" -out "$OUT/MD_vs_MD.txt" \
+ -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/MD-db/MD-db" -out "$OUT/MD_vs_MD.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 blastp \
- -query "$DATA/Prunus-persica-proteome.fasta" -db "$DB/PP-db" -out "$OUT/PP_vs_PP.txt" \
+ -query "$DATA/Prunus-persica-proteome.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/PP_vs_PP.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 blastp \
- -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/PP-db" -out "$OUT/MD_vs_PP.txt" \
+ -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/MD_vs_PP.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
 
 
