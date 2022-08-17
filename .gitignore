@@ -1,7 +1,8 @@
 data/*
-tmp/*
-database/*
+database/
+results/
 log/*
-results/*
+*tmp*
+*test*
 
 scripts/iadhore/iadhore_backup.ini

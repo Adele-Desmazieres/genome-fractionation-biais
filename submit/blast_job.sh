@@ -3,7 +3,7 @@
 ################################ Slurm options #################################
 
 ### Job name
-#SBATCH --job-name=blast_malus_malus
+#SBATCH --job-name=blast
 
 ### Limit run time "days-hours:minutes:seconds"
 ##SBATCH --time=15:00:00
@@ -17,11 +17,11 @@
 
 ### Email
 #SBATCH --mail-user=adele.desmazieres@inrae.fr
-#SBATCH --mail-type=ALL
+#SBATCH --mail-type=NONE
 
 ### Output
-#SBATCH --output=../log/%A_out_blast_malus_malus_.log
-###############################################################################
+#SBATCH --output=log/%A_out_blast_all_vs_all.log
+################################################################################
 
 echo '########################################'
 echo 'Date:' $(date --iso-8601=seconds)
@@ -32,14 +32,22 @@ echo 'Job Id:' $SLURM_JOB_ID
 echo 'Directory:' $(pwd)
 echo '########################################'
 
-FASTA='../data/Malus-domestica-proteome.fasta'
-NAME="../results/blast/malus_vs_malus"
-DB="../database/MD-db"
+#FASTA="data"
+#DB="database"
+#OUT="results/blast"
 
-OUT="$NAME.txt"
 
 blastp \
- -query $FASTA -db $DB -out $OUT \
+ -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/MD-db/MD-db" -out "$OUT/MD_vs_MD.txt" \
  -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
- 
-echo "////////// job done ///////////"
+
+blastp \
+ -query "$DATA/Prunus-persica-proteome.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/PP_vs_PP.txt" \
+ -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
+
+blastp \
+ -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/MD_vs_PP.txt" \
+ -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
+
+
+echo "////////// job done //////////"
