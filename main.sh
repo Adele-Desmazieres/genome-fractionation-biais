@@ -1,4 +1,5 @@
 #!/bin/bash
+date # affiche la date et l'heure actuels
 
 TEST=$1 # si =1 lance les commandes sur les dossiers_test
 FORCED=$2 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
@@ -38,7 +39,7 @@ fi
 if [[ ! -d "$DB/MD-db/" || ! "$(ls -A $DB/MD-db/)" ]]
 then
     printf "\n### MAKEBLASTDB MD ###"
-    makeblastdb -in "$DATA/Prunus-persica-proteome.fasta" -dbtype prot -out "$DB/MD-db/MD-db"
+    makeblastdb -in "$DATA/Malus-domestica-proteome.fasta" -dbtype prot -out "$DB/MD-db/MD-db"
     printf "makeblastdb MD: done\n"
 fi
 
@@ -87,7 +88,6 @@ then
     
     printf "iadhore: done\n"
 fi
-# TODO ? ajouter rm tmp pour supprimer le dossier temporaire ?
 
 
 # lance le script python
@@ -95,4 +95,5 @@ printf "\n### PYTHON ###\n"
 python3 scripts/python/main2.py $TEST > $RES/python/fractionation_stat.txt 
 printf "python: done\n"
 
+date # affiche la date et l'heure actuels
 printf "\nscript: done\n"
