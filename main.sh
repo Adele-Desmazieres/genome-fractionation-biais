@@ -1,22 +1,18 @@
 #!/bin/bash
 date # affiche la date et l'heure actuels
 
-test_flag=0 # si =1 lance les commandes sur les dossiers_test
-forced_flag=0 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
-
-# variables de chemins
-DATA="data"
-DB="database"
-RES="results"
-SUBMIT="submit"
-TMP="tmp"
-
 # affiche la documentation
 print_usage() {
-  printf "Usage:\n\t-t : test\n\t-f : forced"
+    printf "Options: \
+    \n\t-t : test \
+    \n\t-f : forced \
+    \n"
+    exit
 }
 
 # récupère les options du script
+test_flag=0 # si =1 lance les commandes sur les dossiers_test
+forced_flag=0 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
 while getopts 'tf' flag; do
   case "${flag}" in
     t) test_flag=1 ;;
@@ -25,8 +21,17 @@ while getopts 'tf' flag; do
        exit 1 ;;
   esac
 done
+readonly test_flag
+readonly forced_flag
 
-# traite les options
+# variables de chemins
+DATA="data"
+DB="database"
+RES="results"
+SUBMIT="submit"
+TMP="tmp"
+
+# traitement des options
 # si arg1 = 1 alors tous les dossiers doivent finir par _test sauf submit
 if [[ test_flag -eq 1 ]]
 then
@@ -102,6 +107,7 @@ then
     cp $TMP/iadhore/* $RES/iadhore/
 
     # coupe la tabulation en trop dans le fichier multiplicon_pairs.txt si multiplicon_pairs.txt existe
+    # évite de créer un fichier vide si celui d'input n'existe pas
     if [ -f $RES/iadhore/multiplicon_pairs.txt ]
     then
         sed 's:\t\t*:\t:g' $RES/iadhore/multiplicon_pairs.txt > $RES/iadhore/multiplicon_pairs_modified.txt
@@ -113,7 +119,7 @@ fi
 
 # lance le script python
 printf "\n### PYTHON ###\n"
-python3 scripts/python/main2.py $TEST > $RES/python/fractionation_stat.txt 
+python3 scripts/python/main2.py $test_flag > $RES/python/fractionation_stat.txt 
 printf "python: done\n\n"
 
 date # affiche la date et l'heure actuels
