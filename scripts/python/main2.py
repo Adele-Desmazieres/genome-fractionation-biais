@@ -239,7 +239,7 @@ def analysis_each_triplet(df_triplets) :
        print()
 
 
-"""Graphe le gene fractionation d'un triplet et réalise son test statistique"""
+"""Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
 def analysis_one_triplet(triplet) :
     # traitement des données
     df_genes_triplet = pd.DataFrame()
