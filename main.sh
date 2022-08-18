@@ -123,6 +123,11 @@ then
 		sed 's:\t\t*:\t:g' $RES/iadhore/multiplicon_pairs.txt > $RES/iadhore/multiplicon_pairs_modified.txt
 	fi
 
+	# supprime le dossier temporaire
+	if [[ -d $TMP ]]
+	then
+		rm -r $TMP
+	fi
 
 	printf "iadhore: done\n"
 fi
