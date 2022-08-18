@@ -27,6 +27,7 @@ fi
 # crée l'arborescence de dossiers si elle n'existe pas
 mkdir -p $DB $RES/{blast,iadhore,python}
 
+
 # crée les bases de données de blast de PP et MD si elles n'existent pas (si leur dossier est inexistant ou vide)
 # base de données de PP
 if [[ ! -d "$DB/PP-db/" || ! "$(ls -A $DB/PP-db/)" ]]
@@ -44,7 +45,6 @@ then
 fi
 
 
-
 # soumet le blast à slurm
 if [[ ! "$(ls -A $RES/blast)" ]]
 then
@@ -54,7 +54,9 @@ then
     # --export permet d'exporter des variables vers le script du job
 
     # regroupe les 3 blast PP-PP MD-MD et MD-PP dans un même fichier
-    cat $RES/blast/*.txt > $RES/blast/all_vs_all.txt
+    cat $RES/blast/*.txt > $RES/blast/all_vs_all0.txt
+    # traite le fichier pour ne conserver que les 2 premières colonnes, contenant les paires de gènes
+    cut -f1,2 $RES/blast/all_vs_all0.txt > $RES/blast/all_vs_all.txt
 
     printf "blast: done\n"
 fi
@@ -93,7 +95,7 @@ fi
 # lance le script python
 printf "\n### PYTHON ###\n"
 python3 scripts/python/main2.py $TEST > $RES/python/fractionation_stat.txt 
-printf "python: done\n"
+printf "python: done\n\n"
 
 date # affiche la date et l'heure actuels
-printf "\nscript: done\n"
+printf "script: done\n"
