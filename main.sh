@@ -1,8 +1,8 @@
 #!/bin/bash
 date # affiche la date et l'heure actuels
 
-TEST=$1 # si =1 lance les commandes sur les dossiers_test
-FORCED=$2 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
+test_flag=0 # si =1 lance les commandes sur les dossiers_test
+forced_flag=0 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
 
 # variables de chemins
 DATA="data"
@@ -10,8 +10,25 @@ DB="database"
 RES="results"
 SUBMIT="submit"
 TMP="tmp"
+
+# affiche la documentation
+print_usage() {
+  printf "Usage:\n\t-t : test\n\t-f : forced"
+}
+
+# récupère les options du script
+while getopts 'tf' flag; do
+  case "${flag}" in
+    t) test_flag=1 ;;
+    f) forced_flag=1 ;;
+    *) print_usage
+       exit 1 ;;
+  esac
+done
+
+# traite les options
 # si arg1 = 1 alors tous les dossiers doivent finir par _test sauf submit
-if [[ TEST -eq 1 ]]
+if [[ test_flag -eq 1 ]]
 then
     DATA="${DATA}_test"
     DB="${DB}_test"
@@ -19,10 +36,11 @@ then
 fi
 
 # supprime les résultats précédents si l'option forced vaut 1
-if [[ FORCED -eq 1 ]]
+if [[ forced_flag -eq 1 ]]
 then
     rm -r $DB $RES
 fi
+
 
 # crée l'arborescence de dossiers si elle n'existe pas
 mkdir -p $DB $RES/{blast,iadhore,python}
@@ -45,10 +63,11 @@ then
 fi
 
 
-# soumet le blast à slurm
+# soumet le blast à slurm si son résultat n'existe pas déjà
 if [[ ! "$(ls -A $RES/blast)" ]]
 then
     printf "\n### BLAST ###\n"
+    printf "DATA=$DATA\nDB=$DB\nOUT=$RES/blast\n"
     sbatch --wait --export=ALL,DATA=$DATA,DB=$DB,OUT="$RES/blast" $SUBMIT/blast_job.sh 
     # --wait permet d'exit seulement quand le job termine, fait attendre le script sinon
     # --export permet d'exporter des variables vers le script du job
@@ -62,7 +81,7 @@ then
 fi
 
 
-# soumet le iadhore job à slurm si dossier de résultats iadhore est vide
+# soumet le iadhore job à slurm si son résultat n'existe pas déjà
 if [[ ! "$(ls -A $RES/iadhore)" ]]
 then
     printf "\n### IADHORE ###\n"
