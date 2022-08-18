@@ -3,20 +3,26 @@ date # affiche la date et l'heure actuels
 
 # affiche la documentation
 print_usage() {
-	printf "Options: \
+	printf "Saisissez \" $0 -h \" pour plus d'informations.\n"
+}
+
+print_options() {
+	printf "\nUSAGE\n\t$0 [OPTIONS]\n \
+	\nOPTIONS \
 	\n\t-t : test \
 	\n\t-f : forced \
-	\n"
+	\n\n"
 	exit
 }
 
 # récupère les options du script, source : https://google.github.io/styleguide/shellguide.html 
 test_flag=0 # si =1 lance les commandes sur les dossiers_test
 forced_flag=0 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
-while getopts 'tf' flag; do
+while getopts 'tfh' flag; do
   case "${flag}" in
 	t) test_flag=1 ;;
 	f) forced_flag=1 ;;
+	h) print_options ;;
 	*) print_usage
 	   exit 1 ;;
   esac
