@@ -1,11 +1,13 @@
 #!/bin/bash
+
 date # affiche la date et l'heure actuels
 
-# affiche la documentation
+# affiche comment obtenir de l'aide
 print_usage() {
 	printf "Saisissez \" $0 -h \" pour plus d'informations.\n"
 }
 
+# affiche la documentation de la commande
 print_options() {
 	printf "\nUSAGE\n\t$0 [OPTIONS]\n \
 	\nOPTIONS \
@@ -16,8 +18,8 @@ print_options() {
 }
 
 # récupère les options du script, source : https://google.github.io/styleguide/shellguide.html 
-test_flag=0 # si =1 lance les commandes sur les dossiers_test
-forced_flag=0 # si =1 force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
+test_flag=0 # si =1, lance les commandes sur les dossiers_test
+forced_flag=0 # si =1, force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
 while getopts 'tfh' flag; do
   case "${flag}" in
 	t) test_flag=1 ;;
@@ -34,14 +36,14 @@ readonly forced_flag
 DATA="data"
 DB="database"
 RES="results"
-SUBMIT="submit"
+SUBMIT="scripts/bash"
 TMP="tmp"
 
 # traitement des options
-# si arg1 = 1 alors tous les dossiers doivent finir par _test sauf submit
+# si arg1 = 1 alors les dossiers de data, db et résultats doivent finir par _test
 if [[ test_flag -eq 1 ]]
 then
-	printf "OPTION TEST"
+	printf "OPTION TEST\n"
 	DATA="${DATA}_test"
 	DB="${DB}_test"
 	RES="${RES}_test"
@@ -50,7 +52,7 @@ fi
 # supprime les résultats précédents si l'option forced vaut 1
 if [[ forced_flag -eq 1 ]]
 then
-	printf "OPTION FORCED"
+	printf "OPTION FORCED\n"
 	rm -r $DB $RES
 fi
 
@@ -81,9 +83,11 @@ if [[ ! "$(ls -A $RES/blast)" ]]
 then
 	printf "\n### BLAST ###\n"
 	printf "DATA=$DATA\nDB=$DB\nOUT=$RES/blast\n"
+
+	# soumet le job blast
 	sbatch --wait --export=ALL,DATA=$DATA,DB=$DB,OUT="$RES/blast" $SUBMIT/blast_job.sh 
-	# --wait permet d'exit seulement quand le job termine, fait attendre le script sinon
-	# --export permet d'exporter des variables vers le script du job
+	#    --wait permet d'exit seulement quand le job termine, fait attendre le script sinon
+	#    --export permet d'exporter des variables vers le script du job
 
 	# regroupe les 3 blast PP-PP MD-MD et MD-PP dans un même fichier
 	cat $RES/blast/*.txt > $RES/blast/all_vs_all0.txt
@@ -98,32 +102,32 @@ fi
 if [[ ! "$(ls -A $RES/iadhore)" ]]
 then
 	printf "\n### IADHORE ###\n"
-	# déplace les fichiers d'entrée de DATA dans TMP/data pour que iadhore les choppe là-bas sans avoir à modifier son input path
+
+	# supprime le dossier tmp s'il existe puis en crée un vide
 	if [[ -d $TMP ]]
 	then
 		rm -r $TMP
 	fi
-
 	mkdir -p $TMP/iadhore/
 
-	ln -s ../$RES/blast/ $TMP/ # project/tmp/blast/files
-	ln -s ../$DATA/ $TMP/ # project/tmp/data/files
+	# déplace les fichiers d'entrée de DATA dans TMP/data pour que iadhore les choppe là-bas sans avoir à modifier son input path
+	ln -s ../$RES/blast/ $TMP/ # tmp/blast/files
+	ln -s ../$DATA/ $TMP/ # tmp/data_?/files
 	
+	# renomme le dossier du lien symbolique, afin qu'il s'appelle forcément "data"s
 	if [[ $DATA != "data" ]]
 	then
 		mv $TMP/$DATA $TMP/data # renomme le dossier
 	fi
-	#rm -r $TMP/$DATA/
-	#cp -r ../$DATA/PP_lst $TMP/data/
 
-	# soumet le job
+	# soumet le job iadhore
 	sbatch --wait $SUBMIT/iadhore_job.sh
 
 	# déplace les résultats de tmp vers le dossier de résultats
 	mv $TMP/iadhore/* $RES/iadhore/
 
 	# si le fichier d'output de iadhore existe alors
-	# coupe la tabulation en trop dans le fichier multiplicon_pairs.txt si multiplicon_pairs.txt existe
+	# remplace la double tabulation par une simple tabulation, du fichier multiplicon_pairs.txt s'il existe
 	if [ -f $RES/iadhore/multiplicon_pairs.txt ]
 	then
 		sed 's:\t\t*:\t:g' $RES/iadhore/multiplicon_pairs.txt > $RES/iadhore/multiplicon_pairs_modified.txt
@@ -143,6 +147,7 @@ fi
 printf "\n### PYTHON ###\n"
 python3 scripts/python/main2.py $test_flag > $RES/python/fractionation_stat.txt 
 printf "python: done\n\n"
+
 
 date # affiche la date et l'heure actuels
 printf "script: done\n"
