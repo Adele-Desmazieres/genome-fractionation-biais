@@ -8,5 +8,3 @@ log/*
 scripts/iadhore/*.ini
 !scripts/iadhore/iadhore1_model.ini
 
-python/main.ipynb
-Snakefile
