@@ -4,5 +4,7 @@ results/
 log/*
 *tmp*
 *test*
+scripts/iadhore/*.ini
+!scripts/iadhore/iadhore1_model.ini
 
 scripts/iadhore/iadhore_backup.ini
