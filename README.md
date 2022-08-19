@@ -80,6 +80,11 @@ Afficher les options disponibles :
 ./main.sh -h
 ```
 
+Forcer la réexécution de toutes les tâches :
+```bash
+./main.sh -a
+```
+
 ## Author
 Adèle DESMAZIERES
 

@@ -12,8 +12,12 @@ print_usage() {
 print_options() {
 	printf "\nUSAGE\n\t$0 [OPTIONS]\n \
 	\nOPTIONS \
-	\n\t-t : test \
-	\n\t-f : forced \
+	\n\t-a : force all reexecution, same as -bip \
+	\n\t-b : force blast et blastdb reexecution \
+	\n\t-i : force i-ADHoRe reexecution \
+	\n\t-p : force Python reexecution \
+	\n\t-t : test, execute in directories_test\
+	\n\t-h : display options \
 	\n\n"
 	exit 0
 }
