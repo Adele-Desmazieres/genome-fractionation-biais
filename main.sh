@@ -64,19 +64,22 @@ mkdir -p $DB $RES/{blast,iadhore,python}
 
 
 # crée les bases de données de blast de PP et MD si leur dossier n'existe pas, ou est vide, ou le flag blast est levé
-# base de données de PP
-if [[ blast_flag -eq 1 || ! -d "$DB/PP-db/" || ! "$(ls -A $DB/PP-db/)" ]]
-then
-	printf "\n### MAKEBLASTDB PP ###"
-	makeblastdb -in "$DATA/Prunus-persica-proteome.fasta" -dbtype prot -out "$DB/PP-db/PP-db"
-	printf "makeblastdb PP: done\n"
-fi
-# base de données de MD
+
+# base de données MD
 if [[ blast_flag -eq 1 || ! -d "$DB/MD-db/" || ! "$(ls -A $DB/MD-db/)" ]]
 then
 	printf "\n### MAKEBLASTDB MD ###"
+	rm -r "$DB/MD-db/*"
 	makeblastdb -in "$DATA/Malus-domestica-proteome.fasta" -dbtype prot -out "$DB/MD-db/MD-db"
 	printf "makeblastdb MD: done\n"
+fi
+# base de données PP
+if [[ blast_flag -eq 1 || ! -d "$DB/PP-db/" || ! "$(ls -A $DB/PP-db/)" ]]
+then
+	printf "\n### MAKEBLASTDB PP ###"
+	rm -r "$DB/PP-db/*"
+	makeblastdb -in "$DATA/Prunus-persica-proteome.fasta" -dbtype prot -out "$DB/PP-db/PP-db"
+	printf "makeblastdb PP: done\n"
 fi
 
 
@@ -84,6 +87,7 @@ fi
 if [[ blast_flag -eq 1 || ! "$(ls -A $RES/blast)" ]]
 then
 	printf "\n### BLAST ###\n"
+	rm -r "$RES/blast/*"
 	printf "DATA=$DATA\nDB=$DB\nOUT=$RES/blast\n"
 
 	# soumet le job blast
@@ -100,10 +104,28 @@ then
 fi
 
 
+# remplit le fichier de config iadhore avec les chromosomes présents dans data
+make_iadhore_config() {
+	file="scripts/iadhore/iadhore.ini"
+	cat "scripts/iadhore/iadhore1_model.ini" > $file
+	
+	printf "\ngenome = Malus_domestica\n" >> $file
+	ls -1 data_test/MD_lst/* | sed 's/.*/& &/' | sed -e 's/data_test\/MD_lst\///' -e 's/.lst / /' >> $file
+	
+	printf "\ngenome = Prunus_persica\n" >> $file
+	ls -1 data_test/PP_lst/* | sed 's/.*/& &/' | sed -e 's/data_test\/PP_lst\///' -e 's/.lst / /' >> $file
+
+	cat $file
+
+}
+
+
 # soumet le iadhore job à slurm si son résultat n'existe pas déjà ou le flag iadhore est levé
 if [[ iadhore_flag -eq 1 || ! "$(ls -A $RES/iadhore)" ]]
 then
 	printf "\n### IADHORE ###\n"
+
+	rm -r $RES/iadhore/* # supprime le contenu du dossier iadhore/
 
 	# supprime le dossier tmp s'il existe puis en crée un vide
 	if [[ -d $TMP ]]
@@ -121,6 +143,12 @@ then
 	then
 		mv $TMP/$DATA $TMP/data # renomme le dossier
 	fi
+
+	make_iadhore_config # crée le fichier de config iadhore
+	
+	printf "\n=== AVANT SUBMIT : ===\n"
+	ls -R $TMP
+	printf "\n===\n"
 
 	# soumet le job iadhore
 	sbatch --wait $SUBMIT/iadhore_job.sh
