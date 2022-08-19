@@ -4,6 +4,8 @@ results/
 log/*
 *tmp*
 *test*
+
 scripts/iadhore/*.ini
 !scripts/iadhore/iadhore1_model.ini
 
+python/main.ipynb
