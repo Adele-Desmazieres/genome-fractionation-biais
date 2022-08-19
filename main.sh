@@ -1,5 +1,6 @@
 #!/bin/bash
 
+printf "script: running...\n"
 date # affiche la date et l'heure actuels
 
 # affiche comment obtenir de l'aide
@@ -14,16 +15,24 @@ print_options() {
 	\n\t-t : test \
 	\n\t-f : forced \
 	\n\n"
-	exit
+	exit 0
 }
 
 # récupère les options du script, source : https://google.github.io/styleguide/shellguide.html 
 test_flag=0 # si =1, lance les commandes sur les dossiers_test
-forced_flag=0 # si =1, force le lancement des commandes même si les résultats ont été calculés auparavant, écrase les résultats précédents
-while getopts 'tfh' flag; do
+blast_flag=0 # si =1, force l'execution de blast
+iadhore_flag=0 # si =1, force l'execution de iadhore
+python_flag=0 # si =1, force l'execution de python
+
+while getopts 'tbipah' flag; do
   case "${flag}" in
 	t) test_flag=1 ;;
-	f) forced_flag=1 ;;
+	b) blast_flag=1 ;;
+	i) iadhore_flag=1 ;;
+	p) python_flag=1 ;;
+	a) blast_flag=1
+	   iadhore_flag=1 
+	   python_flag=1 ;;
 	h) print_options ;;
 	*) print_usage
 	   exit 1 ;;
@@ -49,28 +58,21 @@ then
 	RES="${RES}_test"
 fi
 
-# supprime les résultats précédents si l'option forced vaut 1
-if [[ forced_flag -eq 1 ]]
-then
-	printf "OPTION FORCED\n"
-	rm -r $DB $RES
-fi
-
 
 # crée l'arborescence de dossiers si elle n'existe pas
 mkdir -p $DB $RES/{blast,iadhore,python}
 
 
-# crée les bases de données de blast de PP et MD si elles n'existent pas (si leur dossier est inexistant ou vide)
+# crée les bases de données de blast de PP et MD si leur dossier n'existe pas, ou est vide, ou le flag blast est levé
 # base de données de PP
-if [[ ! -d "$DB/PP-db/" || ! "$(ls -A $DB/PP-db/)" ]]
+if [[ blast_flag -eq 1 || ! -d "$DB/PP-db/" || ! "$(ls -A $DB/PP-db/)" ]]
 then
 	printf "\n### MAKEBLASTDB PP ###"
 	makeblastdb -in "$DATA/Prunus-persica-proteome.fasta" -dbtype prot -out "$DB/PP-db/PP-db"
 	printf "makeblastdb PP: done\n"
 fi
 # base de données de MD
-if [[ ! -d "$DB/MD-db/" || ! "$(ls -A $DB/MD-db/)" ]]
+if [[ blast_flag -eq 1 || ! -d "$DB/MD-db/" || ! "$(ls -A $DB/MD-db/)" ]]
 then
 	printf "\n### MAKEBLASTDB MD ###"
 	makeblastdb -in "$DATA/Malus-domestica-proteome.fasta" -dbtype prot -out "$DB/MD-db/MD-db"
@@ -78,8 +80,8 @@ then
 fi
 
 
-# soumet le blast à slurm si son résultat n'existe pas déjà
-if [[ ! "$(ls -A $RES/blast)" ]]
+# soumet le blast à slurm si son résultat n'existe pas déjà ou le flag blast est levé
+if [[ blast_flag -eq 1 || ! "$(ls -A $RES/blast)" ]]
 then
 	printf "\n### BLAST ###\n"
 	printf "DATA=$DATA\nDB=$DB\nOUT=$RES/blast\n"
@@ -98,8 +100,8 @@ then
 fi
 
 
-# soumet le iadhore job à slurm si son résultat n'existe pas déjà
-if [[ ! "$(ls -A $RES/iadhore)" ]]
+# soumet le iadhore job à slurm si son résultat n'existe pas déjà ou le flag iadhore est levé
+if [[ iadhore_flag -eq 1 || ! "$(ls -A $RES/iadhore)" ]]
 then
 	printf "\n### IADHORE ###\n"
 
@@ -144,9 +146,12 @@ fi
 
 
 # lance le script python
-printf "\n### PYTHON ###\n"
-python3 scripts/python/main2.py $test_flag > $RES/python/fractionation_stat.txt 
-printf "python: done\n\n"
+if [[ python_flag -eq 1 || ! "$(ls -A $RES/python)" ]]
+then 
+	printf "\n### PYTHON ###\n"
+	python3 scripts/python/main2.py $test_flag > $RES/python/fractionation_stat.txt 
+	printf "python: done\n\n"
+fi
 
 
 date # affiche la date et l'heure actuels
