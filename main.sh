@@ -109,6 +109,7 @@ then
 fi
 
 
+
 # remplit le fichier de config iadhore avec les chromosomes présents dans data
 # liste des fichiers de data/MD_lst de la forme :
 # filename1 this/is/the/path/filename1.extension
@@ -119,13 +120,16 @@ make_iadhore_config() {
 	cat "scripts/iadhore/iadhore1_model.ini" > $file # copie le modèle vide dans le fichier de config
 	
 	printf "\ngenome = Malus_domestica\n" >> $file 
-	ls -1 data_test/MD_lst/* | sed 's/.*/& &/' | sed -e 's/data_test\/MD_lst\///' -e 's/.lst / /' >> $file
+	ls -1 $TMP/data/MD_lst/* | sed 's/.*/& &/' | sed -e "s/$TMP\/data\/MD_lst\///" -e 's/.lst / /' >> $file
 	# lister deux fois les sorties séparées par un espace, puis supprimer le chemin et l'extension de la première sortie
 
 	printf "\ngenome = Prunus_persica\n" >> $file
-	ls -1 data_test/PP_lst/* | sed 's/.*/& &/' | sed -e 's/data_test\/PP_lst\///' -e 's/.lst / /' >> $file
+	ls -1 $TMP/data/PP_lst/* | sed 's/.*/& &/' | sed -e "s/$TMP\/data\/PP_lst\///" -e 's/.lst / /' >> $file
 
-	#cat $file # affiche le fichier de config
+	cat $file # affiche le fichier de config
+	printf "\n"
+	#ls -R tmp/data
+	#printf "\n"
 }
 
 
@@ -147,7 +151,7 @@ then
 	# renomme le dossier du lien symbolique, afin qu'il s'appelle forcément "data"s
 	if [[ $DATA != "data" ]]
 	then
-		mv $TMP/$DATA $TMP/data # renomme le dossier
+		mv $TMP/$DATA $TMP/data # renomme le dossier tmp/data
 	fi
 
 	make_iadhore_config # crée le fichier de config iadhore
@@ -179,7 +183,7 @@ fi
 if [[ python_flag -eq 1 || ! "$(ls -A $RES/python)" ]]
 then 
 	printf "\n### PYTHON ###\n"
-	python3 scripts/python/main2.py $test_flag > $RES/python/fractionation_stat.txt 
+	python3 scripts/python/main2.py $test_flag | tee $RES/python/fractionation_stat.txt 
 	printf "python: done\n\n"
 fi
 
