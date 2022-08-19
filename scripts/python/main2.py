@@ -16,7 +16,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     OUT = "results_test/python/"
 
 WINDOW_SIZE = 90 # nombre de gènes dans la fenêtre glissante
-ANCHORS_MIN = 800 # nombre de gènes similaires minimum entre deux chromosomes homologues
+ANCHORS_MIN = 700 # nombre de gènes similaires minimum entre deux chromosomes homologues
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 
@@ -82,37 +82,36 @@ PPchr = chromosomes[17:]
 df_triplets = pd.DataFrame(columns=['PP', 'MD1', 'MD2', 'anchorpoints_1', 'anchorpoints_2'])
 
 
-"""Trouve le 3e chr d'un triplet avec les indices des 2 premiers, en respectant le seuil minimum d'ancres avec PP"""
-def third_chr(table_nb_anchors, chromosomes, iPP, iMD1) :
-    # MD2 est le chr dont l'indice est celui de la valeur max dans la table des ancres, dans la ligne de MD1, excluant les PP
-    max_MD1_MD2 = max(table_nb_anchors[iMD1][:17])
-    iMD2 = table_nb_anchors[iMD1].index(max_MD1_MD2)
-    MD2 = chromosomes[iMD2]
-
-    if table_nb_anchors[iMD2][iPP] > ANCHORS_MIN : return MD2, iMD2
-    else : return None, None
-
 """Remplissage de la df grâce à la table du nombre d'ancres (gènes dupliqués)"""
 def remplissage_df_triplets(table_nb_anchors, chromosomes, df) :
-    for i in range(len(chromosomes)) :
+
+    for i in range(len(chromosomes)) : # parcourt triangulaire du tableau des ancres entre chromosomes
         for j in range(i, len(chromosomes)) :
 
             # on conserve uniquement les matchs entre 2 espèces différentes, et supérieur au seuil 
-            if table_nb_anchors[i][j] > ANCHORS_MIN and chromosomes[i][:2] != chromosomes[j][:2] :
+            if table_nb_anchors[i][j] >= ANCHORS_MIN and chromosomes[i][:2] != chromosomes[j][:2] :
+
                 PP = chromosomes[i] if chromosomes[i][:2] == "Pp" else chromosomes[j]
                 MD1 = chromosomes[i] if chromosomes[i][:2] == "Md" else chromosomes[j]
-                iMD1 = i if chromosomes[i][:2] == "Md" else j # l'indice du chromosome MD1
-                iPP = i + j - iMD1 # l'indice du chromosome PP
-                
-                # on trouve le 3e chromosome du triplet
-                MD2, iMD2 = third_chr(table_nb_anchors, chromosomes, iPP, iMD1)
-                if MD2 != None : 
-                    MD = [MD1, MD2]
-                    MD.sort() # trie MD1 et MD2 par ordre alphabetique, pour simplifier la suppression des triplets en doublons après
+                # on utilise ces indices, sinon on ne sait pas si PP ou MD est en i ou j
+                iMD1 = i if chromosomes[i][:2] == "Md" else j # l'indice du chromosome MD1 soit i soit j
+                iPP = i + j - iMD1 # l'indice du chromosome PP soit j soit i
 
-                    # crée la df d'une ligne et l'ajoute à df_triplets
-                    row = pd.DataFrame( {'PP':[PP], 'MD1':[MD[0]], 'MD2':[MD[1]], 'anchorpoints_1':[table_nb_anchors[iPP][iMD1]], 'anchorpoints_2':[table_nb_anchors[iPP][iMD2]]} )
-                    df = pd.concat( [df, row], ignore_index=True, axis=0 )
+                # on trouve le 3e chromosome du triplet
+                for k in range(len(chromosomes)) :
+                    # 3e chromosome différent des 2 autres, et ses 2 matchs ont plus que le nbr minimum d'ancres, et il est de la même espèce que MD1
+                    if (k != i and k != j and table_nb_anchors[i][k] >= ANCHORS_MIN and table_nb_anchors[j][k] >= ANCHORS_MIN and chromosomes[iMD1][:2] == chromosomes[k][:2]) :
+                        MD2 = chromosomes[k]
+                        MD = [MD1, MD2]
+                        MD.sort() # trie MD1 et MD2 par ordre alphabetique, pour simplifier la suppression des triplets en doublons après
+
+                        # crée la df d'une ligne et l'ajoute à df_triplets
+                        row = pd.DataFrame({ 'PP':[PP], 
+                                             'MD1':[MD[0]], 
+                                             'MD2':[MD[1]], 
+                                             'anchorpoints_1':[table_nb_anchors[iPP][iMD1]], 
+                                             'anchorpoints_2':[table_nb_anchors[iPP][k]] })
+                        df = pd.concat([df, row], ignore_index=True, axis=0)
 
     df.drop_duplicates(subset=['PP', 'MD1', 'MD2'], inplace=True, ignore_index=True) # suppression des triplets en double
     df.sort_values('PP', inplace=True, ignore_index=True) # tri par valeurs de chromosome PP
@@ -120,7 +119,7 @@ def remplissage_df_triplets(table_nb_anchors, chromosomes, df) :
 
 
 df_triplets = remplissage_df_triplets(table_nb_anchors, chromosomes, df_triplets)
-#print(df_triplets)
+print("chromosomes triplets :\n", df_triplets, "\n")
 
 """
 Lecture et traitement de la table des multiplicon_pairs :
@@ -240,7 +239,7 @@ def analysis_each_triplet(df_triplets) :
        print()
 
 
-"""Graphe le gene fractionation d'un triplet et réalise son test statistique"""
+"""Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
 def analysis_one_triplet(triplet) :
     # traitement des données
     df_genes_triplet = pd.DataFrame()
@@ -251,7 +250,7 @@ def analysis_one_triplet(triplet) :
     df_display = df_fractionation.dropna(subset=['rate_MD1', 'rate_MD2'])
 
     # affichage des données
-    print(triplet)
+    [print(key,':',value) for key, value in triplet.items()]
     #print(df_display)
     test_res = interpretation_test(df_display)
     display_graph_fractionation(df_display, triplet, test_res)
