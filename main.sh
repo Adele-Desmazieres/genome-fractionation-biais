@@ -154,12 +154,8 @@ then
 		mv $TMP/$DATA $TMP/data # renomme le dossier tmp/data
 	fi
 
-	make_iadhore_config # crée le fichier de config iadhore
+	make_iadhore_config # crée le fichier de config iadhore et l'affiche
 	
-	#printf "\n=== AVANT SUBMIT : ===\n"
-	#ls -R $TMP
-	#printf "\n===\n"
-
 	# soumet le job iadhore
 	sbatch --wait $SUBMIT/iadhore_job.sh
 
