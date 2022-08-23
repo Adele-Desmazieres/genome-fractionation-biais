@@ -164,20 +164,7 @@ def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
     
     df_MD1.rename({'gene_y':'gene_PP', 'gene_x':'nb_MD1'}, axis=1, inplace=True)
     df_MD2.rename({'gene_y':'gene_PP', 'gene_x':'nb_MD2'}, axis=1, inplace=True)
-    #print(df_MD1.columns)
-    #print(df_MD1[:10])
-    
-    #df_MD1.to_csv(OUT + "df_MD1.csv")
-    #df_MD2.to_csv(OUT + "df_MD2.csv")
 
-    ''' OLD VERSION
-    # merge des 2 df, c'est-a-dire réalise une jointure inclusive
-    df_triplet = pd.merge(df_MD1, df_MD2, on=['gene_y', 'chr_y'], how='outer', indicator=True)
-    df_triplet = df_triplet.filter({'gene_y', 'gene_x_x', 'gene_x_y'}) # conservation des colonnes des gènes PP MD1 et MD2
-    df_triplet.rename(columns={'gene_y':'gene_PP', 'gene_x_x':'gene_MD1', 'gene_x_y':'gene_MD2'}, inplace=True) # renomme les colonnes
-    df_triplet = df_triplet.reindex(columns=['gene_PP', 'gene_MD1', 'gene_MD2']) # réordonne les colonnes
-    df_triplet.sort_values('gene_PP', inplace=True, ignore_index=True) # trie les lignes par PP croissant, ordonné comme sur le chromosome
-    '''
     # merge les deux df sur la colonne PP, en remplissant les manquantes par des 0
     df_triplet = pd.merge(df_MD1, df_MD2, on='gene_PP', how='outer').fillna(0)
     df_triplet = df_triplet.astype({'nb_MD1':'int', 'nb_MD2':'int'}) # convertit en entiers sans erreur avec NaN
@@ -202,14 +189,11 @@ def normaliser_gene_PP(df_triplet) :
 """
 Création d'une df mesurant le nombre de gènes conservés à chaque itération de la fenêtre le long du chromosome :
        sum_MD1  sum_MD2   rate_MD1   rate_MD2  iteration
-86         NaN      NaN        NaN        NaN         -2
 87         NaN      NaN        NaN        NaN         -1
 88         NaN      NaN        NaN        NaN          0
 89   72.416667     67.0  80.462963  74.444444          1
 90   73.416667     67.0  81.574074  74.444444          2
 91   74.416667     67.0  82.685185  74.444444          3
-92   73.416667     67.0  81.574074  74.444444          4
-93   74.416667     67.0  82.685185  74.444444          5
 Avec sum_MDx la somme du nbr normalisé de gènes MDx dans la fenêtre. 
 Avec rate MDx le pourcentage du nbr de MDx, calculé en faisant sum_MDx * 100 / taille fenêtre. 
 """
@@ -283,12 +267,6 @@ def analysis_one_triplet(triplet) :
     [print(key,':',value) for key, value in triplet.items()]
     #print(df_display[:20])
 
-    ## DEBUGGAGE
-    #df_display.to_csv(OUT + "df_display.csv", index=False)
-    #df_tmp = df_display[df_display.duplicated(subset='gene_PP', keep=False)]
-    #df_tmp.to_csv(OUT + "df_duplicated.csv", index=False)
-
-
     test_res = interpretation_test(df_display)
     display_graph_fractionation(df_display, triplet, test_res)
     print("\n")
@@ -313,7 +291,7 @@ def test(df_triplets, PP) :
 if __name__=="__main__" :
     print("Python main: running...")
     
-    # lance l'analyse de tous les triplets trouvés selon le nbr de gènes similaires
+    # lance l'analyse sur tous les triplets trouvés
     analysis_each_triplet(df_triplets)
 
     # lance l'analyse d'un seul triplet pour tester
