@@ -12,11 +12,12 @@ pd.set_option('display.max_columns', None)
 
 IN = "results/iadhore/"
 OUT = "results/python/"
+PATH_PP = "data/PP_lst/"
 if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     IN = "results_test/iadhore/"
     OUT = "results_test/python/"
 
-WINDOW_SIZE = 90 # nombre de gènes dans la fenêtre glissante
+WINDOW_SIZE = 50 # nombre de gènes dans la fenêtre glissante
 ANCHORS_MIN = 700 # nombre de gènes similaires minimum entre deux chromosomes homologues
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
@@ -137,11 +138,10 @@ df_pairs_chr.rename(columns={'list_x':'chr_x', 'list_y':'chr_y'}, inplace=True)
 
 """
 Construction de la liste des triplets de genes chez les chromosomes du triplet
-gene_PP          nb_MD1 nb_MD2 norm_MD1 norm_MD2
-Prupe.3G011400.1  1      1      1        1
-Prupe.3G011500.1  0      1      0        1
-Prupe.3G011600.1  2      1      1        0.5
-Prupe.3G011700.1  1      4      0.25     1
+gene_PP          nb_MD1 nb_MD2
+Prupe.3G011400.1  1      1    
+Prupe.3G011500.1  0      1    
+Prupe.3G011700.1  1      4    
 """
 def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
     
@@ -170,21 +170,39 @@ def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
     df_triplet = df_triplet.astype({'nb_MD1':'int', 'nb_MD2':'int'}) # convertit en entiers sans erreur avec NaN
     df_triplet.sort_values('gene_PP', inplace=True, ignore_index=True) # trie les lignes par PP croissant, ordonnés comme sur le chromosome
 
-    df_triplet = normaliser_gene_PP(df_triplet)
-
     #df_triplet.to_csv(OUT + "tmp_" + PP + MD1 + MD2 + ".csv", index=False)
+    return df_triplet
+
+"""Ajout des gènes manquants de PP, avec des valeurs de 0 pour les MD correspondants"""
+def add_every_PP(df_triplet, PP) :
+    # liste les gènes du génome complet du chromosome du triplet
+    df_PP = pd.read_csv(PATH_PP + PP + ".lst", usecols=[0], names=['gene_PP'])
+    # supprime l'orientation (+ ou -) à la fin de chaque gene
+    df_PP['gene_PP'] = df_PP.apply( lambda x: x.gene_PP[: len(x.gene_PP)-1 ] , axis=1)
+    
+    # concatène les df l'une au-dessus de l'autre puis supprime les duplicata de genes PP en gardant la premiere occurrence car c'est celle de df_triplet
+    # on obtient bien le meme nbr de lignes que de genes dans le fichier .lst
+    df_triplet = pd.concat([df_triplet, df_PP]).drop_duplicates(subset=['gene_PP'], keep='first').reset_index(drop=True)
+    df_triplet.fillna(0, inplace=True) # remplie les NaN avec des 0
+    # ordonne par gene PP croissant
+    df_triplet = df_triplet.sort_values(by=['gene_PP'], ignore_index=True)
+
+    #print(df_triplet)
     return df_triplet
 
 """
 Normalise entre 0 et 1 le nb de gènes MD par PP. 
 Pour cela ajout des colonnes norm_MD1 et norm_MD2 qui valent 0 si MDx vaut 0,
 et valent = MDx / max( MD1, MD2 ) sinon. 
+gene_PP          nb_MD1 nb_MD2 norm_MD1 norm_MD2
+Prupe.3G011400.1  1      1      1        1
+Prupe.3G011500.1  0      1      0        1
+Prupe.3G011700.1  1      4      0.25     1
 """
 def normaliser_gene_PP(df_triplet) :
     df_triplet['norm_MD1'] = df_triplet.apply(lambda x: 0 if x.nb_MD1 == 0 else x.nb_MD1 / max(x.nb_MD1, x.nb_MD2), axis=1)
     df_triplet['norm_MD2'] = df_triplet.apply(lambda x: 0 if x.nb_MD2 == 0 else x.nb_MD2 / max(x.nb_MD1, x.nb_MD2), axis=1)
     return df_triplet
-
 
 """
 Création d'une df mesurant le nombre de gènes conservés à chaque itération de la fenêtre le long du chromosome :
@@ -197,12 +215,12 @@ Création d'une df mesurant le nombre de gènes conservés à chaque itération 
 Avec sum_MDx la somme du nbr normalisé de gènes MDx dans la fenêtre. 
 Avec rate MDx le pourcentage du nbr de MDx, calculé en faisant sum_MDx * 100 / taille fenêtre. 
 """
-def make_df_window(df_genes) :
+def make_df_window(df_triplet) :
     # crée une new df pour les comptes de la fenetre glissante
     df_window = pd.DataFrame(dtype=float)
-    df_window['gene_PP'] = df_genes.gene_PP
-    df_window['sum_MD1'] = df_genes.norm_MD1.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
-    df_window['sum_MD2'] = df_genes.norm_MD2.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
+    df_window['gene_PP'] = df_triplet.gene_PP
+    df_window['sum_MD1'] = df_triplet.norm_MD1.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
+    df_window['sum_MD2'] = df_triplet.norm_MD2.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
 
     # calcule le pourcentage de sum_MD dans la colonne rate_MD
     df_window['rate_MD1'] = df_window['sum_MD1'] * 100 / WINDOW_SIZE
@@ -212,8 +230,8 @@ def make_df_window(df_genes) :
     df_window['iteration'] = df_window.index - WINDOW_SIZE + 2
     #df_window.set_index('iteration', inplace=True)
 
-    print(df_window[WINDOW_SIZE-5:WINDOW_SIZE+30])
-    print("len : ", len(df_window))
+    #print(df_window[WINDOW_SIZE-5:WINDOW_SIZE+30])
+    #print("len : ", len(df_window))
     return df_window
 
 
@@ -225,13 +243,12 @@ def display_graph_fractionation(df_display, triplet, test_res) :
 
     # renomme les colonnes pour avoir une légende compréhensible
     df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
-    #print(df)
 
     # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
     fig = px.line(df, x='iteration', y=[MD1, MD2])
     fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
                     yaxis_title="genome conservation rate (%)",
-                    title="Fractionation biais between " + MD1 + " and " + MD2,
+                    title="Fractionation biais between " + MD1 + " and " + MD2 + " (compared to " + PP + ")",
                     xaxis_range=[0, len(df)],
                     yaxis_range=[-1, 101] )
 
@@ -242,21 +259,27 @@ def display_graph_fractionation(df_display, triplet, test_res) :
                     x=0, y=0, showarrow=False)
 
     fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
-    #fig.show()
+    #fig.show() # ne fonctionne pas en ssh ?
 
 
 """Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
 def analysis_each_triplet(df_triplets) :
     for triplet in df_triplets.to_dict('records') :
        analysis_one_triplet(triplet)
-       print()
 
 
 """Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
 def analysis_one_triplet(triplet) :
-    # traitement des données
-    df_genes_triplet = pd.DataFrame()
+    # crée la df du nbr de MD par triplets de gènes
     df_genes_triplet = make_df_genes_triplet(triplet.get('PP'), triplet.get('MD1'), triplet.get('MD2'), df_pairs_chr)
+
+    # ajoute les gènes de PP manquants
+    df_genes_triplet = add_every_PP(df_genes_triplet, triplet.get('PP'))
+
+    # normalise les nbr de MD entre 0 et 1
+    df_genes_triplet = normaliser_gene_PP(df_genes_triplet)
+
+    # crée la df des valeurs en fenetre glissante, avec un pas=1
     df_window = make_df_window(df_genes_triplet)
 
     # suppression des NaN des données de pourcentage de conservation des gènes
@@ -265,11 +288,10 @@ def analysis_one_triplet(triplet) :
     # affichage des données
     print("\n")
     [print(key,':',value) for key, value in triplet.items()]
-    #print(df_display[:20])
+    #print(df_display[:10])
 
     test_res = interpretation_test(df_display)
     display_graph_fractionation(df_display, triplet, test_res)
-    print("\n")
 
 
 """Réalise et interprete le test statistique wilcoxons"""
