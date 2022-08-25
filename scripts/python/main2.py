@@ -8,7 +8,7 @@ import sys
 # supprime les avertissements de copies de dataframe
 # TODO : comprendre et supprimer correctement cet avertissement
 pd.options.mode.chained_assignment = None
-pd.set_option('display.max_columns', None)
+pd.options.display.max_rows = 999
 
 IN = "results/iadhore/"
 OUT = "results/python/"
