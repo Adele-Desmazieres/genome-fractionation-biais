@@ -18,9 +18,13 @@ if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     IN = "results_test/iadhore/"
     OUT = "results_test/python/"
 
-WINDOW_SIZE = 10 # nombre de gènes dans la fenêtre glissante
-ANCHORS_MIN = 700 # nombre de gènes similaires minimum entre deux chromosomes homologues
+WINDOW_SIZE = 50 # nombre de gènes dans la fenêtre glissante, conseillé entre 50 et 100 gènes par fenêtres
+ANCHORS_MIN = 600 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 100 et 700
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
+
+# si plus de MIN_WINDOWS à suivre ont un pourcentage de conservation inférieur à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, et ce n'est pas le fractionation biais
+NO_SYNTENY_MIN_WINDOWS = 5 # nombre de fenêtre dont la conservation est inférieur au seuil, à partir duquel on considère que le fragment n'est pas synténique, conseillé 100?
+NO_SYNTENY_MIN_RATE = 5 # pourcentage min de synténie, conseillé 0%
 
 
 """
@@ -235,6 +239,10 @@ def make_df_window(df_triplet) :
     df_window['rate_MD1'] = df_window['sum_MD1'] * 100 / WINDOW_SIZE
     df_window['rate_MD2'] = df_window['sum_MD2'] * 100 / WINDOW_SIZE
 
+    # arrondis les pourcentage à 3 décimales
+    df_window.rate_MD1 = df_window.rate_MD1.astype(float).round(decimals = 3)
+    df_window.rate_MD2 = df_window.rate_MD2.astype(float).round(decimals = 3)
+
     df_window.reset_index(drop=True) # réinitialise un index commencant à 0
     df_window['iteration'] = df_window.index - WINDOW_SIZE // 2 + 1
 
@@ -253,7 +261,8 @@ def display_graph_fractionation(df_display, triplet, test_res) :
     df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
 
     # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
-    fig = px.line(df, x='iteration', y=[MD1, MD2])
+    fig = px.line(df, x=df.index, y=[MD1, MD2])
+    
     fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
                     yaxis_title="genome conservation rate (%)",
                     title="Fractionation biais between " + MD1 + " and " + MD2 + " (compared to " + PP + ")",
@@ -266,6 +275,11 @@ def display_graph_fractionation(df_display, triplet, test_res) :
                     font={'size':17, 'color':'black'},
                     x=0, y=0, showarrow=False)
 
+    fig.add_vrect(x0="2018-09-24", x1="2018-12-18", 
+                    annotation_text="decline", 
+                    annotation_position="top left",
+                    fillcolor="green", opacity=0.25, line_width=0)
+
     fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
 
@@ -274,6 +288,29 @@ def display_graph_fractionation(df_display, triplet, test_res) :
 def analysis_each_triplet(df_triplets) :
     for triplet in df_triplets.to_dict('records') :
        analysis_one_triplet(triplet)
+
+
+def make_synteny_limits(df_display) :
+    df_display['tmp_MD1'] = df_display.apply(lambda x: 0 if x.rate_MD1 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
+    df_display['tmp2_MD1'] = df_display.tmp_MD1.cumsum()
+    df_display['tmp3_MD1'] = df_display.groupby('tmp2_MD1')['tmp2_MD1'].transform('count')
+    df_display['synteny_MD1'] = df_display.apply(lambda x: 0 if x.tmp3_MD1 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
+    #df_display['limit_MD1'] = df_display.synteny_MD1.diff()
+
+    df_display['tmp_MD2'] = df_display.apply(lambda x: 0 if x.rate_MD2 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
+    df_display['tmp2_MD2'] = df_display.tmp_MD2.cumsum()
+    df_display['tmp3_MD2'] = df_display.groupby('tmp2_MD2')['tmp2_MD2'].transform('count')
+    df_display['synteny_MD2'] = df_display.apply(lambda x: 0 if x.tmp3_MD2 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
+    #df_display['limit_MD2'] = df_display.synteny_MD2.diff()
+
+    df_display['synteny'] = df_display.apply(lambda x: 0 if x.synteny_MD1 == 0 or x.synteny_MD2 == 0 else 1, axis=1)
+    df_display['limit'] = df_display.synteny.diff()
+
+    #print(df_display[1490:1510])
+    print(df_display[df_display.limit != 0])
+
+
+    return [[]]
 
 
 """Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
@@ -290,22 +327,24 @@ def analysis_one_triplet(triplet) :
 
     # normalise les nbr de MD entre 0 et 1
     df_genes_triplet = normaliser_gene_PP(df_genes_triplet)
-    #print(df_genes_triplet)
 
     # crée la df des valeurs en fenetre glissante, avec un pas=1
     df_window = make_df_window(df_genes_triplet)
-    print(df_window)
 
     # merge les df des gènes avec celle des pourcentages, en centrant la fenetre de pourcentage sur le gène
-    #df_tmp = pd.concat([df_genes_triplet[ WINDOW_SIZE//2 : ].reset_index(drop=True), df_window[ WINDOW_SIZE-1:].reset_index(drop=True)], axis=1, join='inner')
-    df_tmp = pd.merge(df_genes_triplet, df_window, on='gene_PP', how='outer')
-    print(df_tmp[WINDOW_SIZE - 10 : WINDOW_SIZE + 10], "\n")
-    print(df_tmp[len(df_tmp)-15 : ], "\n")
-    #print(df_tmp[['gene_MD1', 'norm_MD1', 'rate_MD1', 'iteration']][:])
-    df_tmp.to_csv(OUT + "gene_rate_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
+    # et exporte ces données pour être exploitées par Tanguy
+    df_data_complete = pd.merge(df_genes_triplet, df_window, on='gene_PP', how='outer')
+    df_data_complete = df_data_complete.explode('gene_MD1')
+    df_data_complete = df_data_complete.explode('gene_MD2')
+    #df_data_complete
+    df_data_complete.to_csv(OUT + "gene_rate_" + PP + "_" + MD1 + "_" + MD2 + ".csv", index=False)
 
     # suppression des NaN des données de pourcentage de conservation des gènes
     df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
+    df_display = df_display.set_index('iteration', drop=True)
+    df_display.to_csv(OUT + "display_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
+
+    #synteny_limits = make_synteny_limits(df_display)
 
     # affichage des données
     print("\n")
