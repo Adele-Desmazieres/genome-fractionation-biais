@@ -117,7 +117,7 @@ fi
 # filename3 this/is/the/path/filename3.extension
 make_iadhore_config() {
 	file="scripts/iadhore/iadhore.ini"
-	cat "scripts/iadhore/iadhore3_model.ini" > $file # copie le modèle vide dans le fichier de config
+	cat "scripts/iadhore/iadhore_model.ini" > $file # copie le modèle vide dans le fichier de config
 	
 	printf "\ngenome = Malus_domestica\n" >> $file 
 	ls -1 $TMP/data/MD_lst/* | sed 's/.*/& &/' | sed -e "s/$TMP\/data\/MD_lst\///" -e 's/.lst / /' >> $file
@@ -158,6 +158,7 @@ then
 	
 	# soumet le job iadhore
 	sbatch --wait $SUBMIT/iadhore_job.sh
+	#i-adhore scripts/iadhore/iadhore.ini
 
 	# déplace les résultats de tmp vers le dossier de résultats
 	mv $TMP/iadhore/* $RES/iadhore/
