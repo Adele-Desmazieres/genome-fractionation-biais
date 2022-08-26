@@ -23,8 +23,8 @@ ANCHORS_MIN = 600 # nombre de gènes similaires minimum entre deux chromosomes h
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 # si plus de MIN_WINDOWS à suivre ont un pourcentage de conservation inférieur à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, et ce n'est pas le fractionation biais
-NO_SYNTENY_MIN_WINDOWS = 150 # nombre de fenêtre dont la conservation est inférieur au seuil, à partir duquel on considère que le fragment n'est pas synténique, conseillé 100?
-NO_SYNTENY_MIN_RATE = 10 # pourcentage min de synténie, conseillé 0%
+NO_SYNTENY_MIN_WINDOWS = 50 # nombre de fenêtre dont la conservation est inférieur au seuil, à partir duquel on considère que le fragment n'est pas synténique, conseillé 100?
+NO_SYNTENY_MIN_RATE = 0 # nb de gènes min de synténie, conseillé 0
 
 
 """
@@ -276,7 +276,6 @@ def display_graph_fractionation(df_display, triplet, test_res, df_synteny) :
                     x=0, y=0, showarrow=False)
     
     for index, row in df_synteny.iterrows() :
-        print(row)
         fig.add_vrect(x0=row['debut'], x1=row['fin'], 
                     annotation_text="synténie", 
                     annotation_position="top left",
@@ -291,12 +290,12 @@ def display_graph_fractionation(df_display, triplet, test_res, df_synteny) :
 
 """Trouve les limites des fragments de synténie"""
 def make_synteny_limits(df_display) :
-    df_display['tmp_MD1'] = df_display.apply(lambda x: 0 if x.rate_MD1 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
+    df_display['tmp_MD1'] = df_display.apply(lambda x: 0 if x.nb_MD1 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
     df_display['tmp2_MD1'] = df_display.tmp_MD1.cumsum()
     df_display['tmp3_MD1'] = df_display.groupby('tmp2_MD1')['tmp2_MD1'].transform('count')
     df_display['synteny_MD1'] = df_display.apply(lambda x: 0 if x.tmp3_MD1 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
 
-    df_display['tmp_MD2'] = df_display.apply(lambda x: 0 if x.rate_MD2 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
+    df_display['tmp_MD2'] = df_display.apply(lambda x: 0 if x.nb_MD2 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
     df_display['tmp2_MD2'] = df_display.tmp_MD2.cumsum()
     df_display['tmp3_MD2'] = df_display.groupby('tmp2_MD2')['tmp2_MD2'].transform('count')
     df_display['synteny_MD2'] = df_display.apply(lambda x: 0 if x.tmp3_MD2 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
@@ -304,8 +303,9 @@ def make_synteny_limits(df_display) :
     df_display['synteny'] = df_display.apply(lambda x: 0 if x.synteny_MD1 == 0 or x.synteny_MD2 == 0 else 1, axis=1)
     df_display['limit'] = df_display.synteny.diff()
 
-    df_display.drop(['tmp_MD1', 'tmp2_MD1', 'tmp3_MD1', 'tmp_MD2', 'tmp2_MD2', 'tmp3_MD2'], axis=1, inplace=True) # supprime les colonnes
-
+    df_display.drop(['tmp_MD1', 'tmp2_MD1', 'tmp3_MD1', 'tmp_MD2', 'tmp2_MD2', 'tmp3_MD2'], axis=1, inplace=True) # supprime les colonnes temporaires
+    print(df_display)
+    
     df_synteny = pd.DataFrame(df_display.loc[df_display['limit'] != 0, 'limit']).reindex()
     end = len(df_display)
     if (len(df_synteny) > 1) :
@@ -362,6 +362,7 @@ def analysis_one_triplet(triplet) :
 
     # suppression des NaN des données de pourcentage de conservation des gènes
     df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
+    df_display = df_display.merge(df_genes_triplet[['gene_PP', 'nb_MD1', 'nb_MD2']], on='gene_PP')
     df_display = df_display.set_index('iteration', drop=True)
     df_display.to_csv(OUT + "display_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
 
