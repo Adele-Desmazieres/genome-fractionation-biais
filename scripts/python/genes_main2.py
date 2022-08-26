@@ -9,16 +9,16 @@ import sys
 # TODO : comprendre et supprimer correctement cet avertissement
 pd.options.mode.chained_assignment = None
 pd.options.display.max_rows = 999
-#print(pd.options.display.max_rows)
 
 IN = "results/iadhore/"
 OUT = "results/python/"
 PATH_PP = "data/PP_lst/"
+
 if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     IN = "results_test/iadhore/"
     OUT = "results_test/python/"
 
-WINDOW_SIZE = 50 # nombre de gènes dans la fenêtre glissante
+WINDOW_SIZE = 10 # nombre de gènes dans la fenêtre glissante
 ANCHORS_MIN = 700 # nombre de gènes similaires minimum entre deux chromosomes homologues
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
@@ -153,29 +153,23 @@ def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
     df_PPx.rename(columns={'gene_x':'gene_y', 'gene_y':'gene_x', 'chr_x':'chr_y', 'chr_y':'chr_x'}, inplace=True)
     # concaténation des df l'une au-dessus de l'autre car elles ont les mêmes colonnes 
     df_tmp = pd.concat([df_PPy, df_PPx])
+    #print(df_tmp)
 
     # sélection des paires dont le MD correspond à l'un des 2 chr donnés en arguments 
     df_tmp_MD1 = df_tmp[ (df_tmp.chr_x == MD1) ]
     df_tmp_MD2 = df_tmp[ (df_tmp.chr_x == MD2) ]
-    print(df_tmp_MD1, "\n")
     
-
     df_tmp_MD1.rename({'gene_y':'gene_PP', 'gene_x':'gene_MD1'}, axis=1, inplace=True)
     df_tmp_MD2.rename({'gene_y':'gene_PP', 'gene_x':'gene_MD2'}, axis=1, inplace=True)
 
+    # regroupe les gènes MD en listes pour avoir un PP unique par ligne
     df_MD1 = df_tmp_MD1.groupby('gene_PP')['gene_MD1'].apply(list).reset_index(name='gene_MD1')
     df_MD2 = df_tmp_MD2.groupby('gene_PP')['gene_MD2'].apply(list).reset_index(name='gene_MD2')
-
-    print("\nMD1 : \n")
-    print(df_MD1, "\n")
 
     # regrouper par gene PP et compter pour chaque groupe le nbr de genes MD par gene PP
     # au sein d'une df, on n'a que des genes PP uniques
     df_nbMD1 = df_tmp_MD1.groupby(['gene_PP'])['gene_MD1'].count().reset_index(name='nb_MD1')
     df_nbMD2 = df_tmp_MD2.groupby(['gene_PP'])['gene_MD2'].count().reset_index(name='nb_MD2')
-    print("\nnbMD1 : \n")
-    print(df_nbMD1, "\n")
-
 
     # merge les quatre df sur la colonne PP, en remplissant les manquantes par des 0
     df_triplet = pd.merge(df_MD1, df_MD2, on='gene_PP', how='outer').fillna(0)
@@ -184,7 +178,6 @@ def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
 
     df_triplet = df_triplet.astype({'nb_MD1':'int', 'nb_MD2':'int'}) # convertit en entiers sans erreur avec NaN
     df_triplet.sort_values('gene_PP', inplace=True, ignore_index=True) # trie les lignes par PP croissant, ordonnés comme sur le chromosome
-    print(df_triplet[15:35], "\nrows=", len(df_triplet))
 
     #df_triplet.to_csv(OUT + "tmp_" + PP + MD1 + MD2 + ".csv", index=False)
     return df_triplet
@@ -204,7 +197,6 @@ def add_every_PP(df_triplet, PP) :
     # ordonne par gene PP croissant
     df_triplet = df_triplet.sort_values(by=['gene_PP'], ignore_index=True)
 
-    #print(df_triplet)
     return df_triplet
 
 """
@@ -236,16 +228,15 @@ def make_df_window(df_triplet) :
     # crée une new df pour les comptes de la fenetre glissante
     df_window = pd.DataFrame(dtype=float)
     df_window['gene_PP'] = df_triplet.gene_PP
-    df_window['sum_MD1'] = df_triplet.norm_MD1.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
-    df_window['sum_MD2'] = df_triplet.norm_MD2.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
+    df_window['sum_MD1'] = df_triplet.norm_MD1.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE, center=True).sum()
+    df_window['sum_MD2'] = df_triplet.norm_MD2.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE, center=True).sum()
 
     # calcule le pourcentage de sum_MD dans la colonne rate_MD
     df_window['rate_MD1'] = df_window['sum_MD1'] * 100 / WINDOW_SIZE
     df_window['rate_MD2'] = df_window['sum_MD2'] * 100 / WINDOW_SIZE
 
     df_window.reset_index(drop=True) # réinitialise un index commencant à 0
-    df_window['iteration'] = df_window.index - WINDOW_SIZE + 2
-    #df_window.set_index('iteration', inplace=True)
+    df_window['iteration'] = df_window.index - WINDOW_SIZE // 2 + 1
 
     #print(df_window[WINDOW_SIZE-5:WINDOW_SIZE+30])
     #print("len : ", len(df_window))
@@ -287,17 +278,31 @@ def analysis_each_triplet(df_triplets) :
 
 """Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
 def analysis_one_triplet(triplet) :
+    PP = triplet.get('PP')
+    MD1 = triplet.get('MD1')
+    MD2 = triplet.get('MD2')
+
     # crée la df du nbr de MD par triplets de gènes
-    df_genes_triplet = make_df_genes_triplet(triplet.get('PP'), triplet.get('MD1'), triplet.get('MD2'), df_pairs_chr)
+    df_genes_triplet = make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr)
 
     # ajoute les gènes de PP manquants
-    df_genes_triplet = add_every_PP(df_genes_triplet, triplet.get('PP'))
+    df_genes_triplet = add_every_PP(df_genes_triplet, PP)
 
     # normalise les nbr de MD entre 0 et 1
     df_genes_triplet = normaliser_gene_PP(df_genes_triplet)
+    #print(df_genes_triplet)
 
     # crée la df des valeurs en fenetre glissante, avec un pas=1
     df_window = make_df_window(df_genes_triplet)
+    print(df_window)
+
+    # merge les df des gènes avec celle des pourcentages, en centrant la fenetre de pourcentage sur le gène
+    #df_tmp = pd.concat([df_genes_triplet[ WINDOW_SIZE//2 : ].reset_index(drop=True), df_window[ WINDOW_SIZE-1:].reset_index(drop=True)], axis=1, join='inner')
+    df_tmp = pd.merge(df_genes_triplet, df_window, on='gene_PP', how='outer')
+    print(df_tmp[WINDOW_SIZE - 10 : WINDOW_SIZE + 10], "\n")
+    print(df_tmp[len(df_tmp)-15 : ], "\n")
+    #print(df_tmp[['gene_MD1', 'norm_MD1', 'rate_MD1', 'iteration']][:])
+    df_tmp.to_csv(OUT + "gene_rate_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
 
     # suppression des NaN des données de pourcentage de conservation des gènes
     df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
