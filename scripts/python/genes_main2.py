@@ -23,8 +23,8 @@ ANCHORS_MIN = 600 # nombre de gènes similaires minimum entre deux chromosomes h
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 # si plus de MIN_WINDOWS à suivre ont un pourcentage de conservation inférieur à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, et ce n'est pas le fractionation biais
-NO_SYNTENY_MIN_WINDOWS = 5 # nombre de fenêtre dont la conservation est inférieur au seuil, à partir duquel on considère que le fragment n'est pas synténique, conseillé 100?
-NO_SYNTENY_MIN_RATE = 5 # pourcentage min de synténie, conseillé 0%
+NO_SYNTENY_MIN_WINDOWS = 150 # nombre de fenêtre dont la conservation est inférieur au seuil, à partir duquel on considère que le fragment n'est pas synténique, conseillé 100?
+NO_SYNTENY_MIN_RATE = 10 # pourcentage min de synténie, conseillé 0%
 
 
 """
@@ -252,7 +252,7 @@ def make_df_window(df_triplet) :
 
 
 """Affiche le graphique du taux de conservation de genes au sein de 2 chromosomes dupliqués"""
-def display_graph_fractionation(df_display, triplet, test_res) :
+def display_graph_fractionation(df_display, triplet, test_res, df_synteny) :
     MD1 = triplet.get("MD1")
     MD2 = triplet.get("MD2")
     PP = triplet.get("PP")
@@ -274,11 +274,16 @@ def display_graph_fractionation(df_display, triplet, test_res) :
                     yanchor='bottom',
                     font={'size':17, 'color':'black'},
                     x=0, y=0, showarrow=False)
-
-    fig.add_vrect(x0="2018-09-24", x1="2018-12-18", 
-                    annotation_text="decline", 
+    
+    for index, row in df_synteny.iterrows() :
+        print(row)
+        fig.add_vrect(x0=row['debut'], x1=row['fin'], 
+                    annotation_text="synténie", 
                     annotation_position="top left",
-                    fillcolor="green", opacity=0.25, line_width=0)
+                    fillcolor="green", 
+                    opacity=0.2, 
+                    line_width=0, 
+                    layer="below")
 
     fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
@@ -299,11 +304,34 @@ def make_synteny_limits(df_display) :
     df_display['synteny'] = df_display.apply(lambda x: 0 if x.synteny_MD1 == 0 or x.synteny_MD2 == 0 else 1, axis=1)
     df_display['limit'] = df_display.synteny.diff()
 
-    #print(df_display[1490:1510])
-    print(df_display[df_display.limit != 0])
+    df_display.drop(['tmp_MD1', 'tmp2_MD1', 'tmp3_MD1', 'tmp_MD2', 'tmp2_MD2', 'tmp3_MD2'], axis=1, inplace=True) # supprime les colonnes
+
+    df_synteny = pd.DataFrame(df_display.loc[df_display['limit'] != 0, 'limit']).reindex()
+    end = len(df_display)
+    if (len(df_synteny) > 1) :
+        df_synteny = traiter_synteny(df_synteny, end)
+    else :
+        df_synteny = pd.DataFrame([[1, end]], columns=['debut', 'fin'])
+
+    return df_synteny
 
 
-    return [[]]
+def traiter_synteny(df_synteny, end) :
+    df_synteny.reset_index(inplace=True)
+    if df_synteny.iloc[1]['limit'] == -1 :
+        df_synteny.at[0, 'limit'] = 1 
+    if df_synteny.iloc[len(df_synteny) - 1]['limit'] == 1 :
+        df_synteny.loc[len(df_synteny)] = [end, -1]
+
+    df_debut = df_synteny[df_synteny.limit == 1].reset_index(drop=True)
+    df_debut.rename(columns={'iteration':'debut'}, inplace=True)
+    df_debut.drop(['limit'], axis=1, inplace=True)
+    df_fin = df_synteny[df_synteny.limit == -1].reset_index(drop=True)
+    df_fin.rename(columns={'iteration':'fin'}, inplace=True)
+    df_fin.drop(['limit'], axis=1, inplace=True)
+    df_synteny = pd.concat([df_debut, df_fin], axis=1)
+
+    return df_synteny
 
 
 """Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
@@ -337,15 +365,14 @@ def analysis_one_triplet(triplet) :
     df_display = df_display.set_index('iteration', drop=True)
     df_display.to_csv(OUT + "display_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
 
-    #synteny_limits = make_synteny_limits(df_display)
+    df_synteny = make_synteny_limits(df_display)
 
     # affichage des données
     print("\n")
     [print(key,':',value) for key, value in triplet.items()]
-    #print(df_display[:10])
-
-    test_res = interpretation_test(df_display)
-    display_graph_fractionation(df_display, triplet, test_res)
+    test_res = interpretation_test(df_display, df_synteny)
+    print("\n SYNTENY : \n", df_synteny)
+    display_graph_fractionation(df_display, triplet, test_res, df_synteny)
 
 
 """Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
@@ -355,7 +382,7 @@ def analysis_each_triplet(df_triplets) :
 
 
 """Réalise et interprete le test statistique wilcoxons"""
-def interpretation_test(df_display) :
+def interpretation_test(df_display, df_synteny) :
     res = wilcoxon(df_display['rate_MD1'], df_display['rate_MD2'])
     print(res)
     if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
