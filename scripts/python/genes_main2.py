@@ -284,24 +284,17 @@ def display_graph_fractionation(df_display, triplet, test_res) :
     #fig.show() # ne fonctionne pas en ssh ?
 
 
-"""Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
-def analysis_each_triplet(df_triplets) :
-    for triplet in df_triplets.to_dict('records') :
-       analysis_one_triplet(triplet)
-
-
+"""Trouve les limites des fragments de synténie"""
 def make_synteny_limits(df_display) :
     df_display['tmp_MD1'] = df_display.apply(lambda x: 0 if x.rate_MD1 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
     df_display['tmp2_MD1'] = df_display.tmp_MD1.cumsum()
     df_display['tmp3_MD1'] = df_display.groupby('tmp2_MD1')['tmp2_MD1'].transform('count')
     df_display['synteny_MD1'] = df_display.apply(lambda x: 0 if x.tmp3_MD1 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
-    #df_display['limit_MD1'] = df_display.synteny_MD1.diff()
 
     df_display['tmp_MD2'] = df_display.apply(lambda x: 0 if x.rate_MD2 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
     df_display['tmp2_MD2'] = df_display.tmp_MD2.cumsum()
     df_display['tmp3_MD2'] = df_display.groupby('tmp2_MD2')['tmp2_MD2'].transform('count')
     df_display['synteny_MD2'] = df_display.apply(lambda x: 0 if x.tmp3_MD2 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
-    #df_display['limit_MD2'] = df_display.synteny_MD2.diff()
 
     df_display['synteny'] = df_display.apply(lambda x: 0 if x.synteny_MD1 == 0 or x.synteny_MD2 == 0 else 1, axis=1)
     df_display['limit'] = df_display.synteny.diff()
@@ -353,6 +346,12 @@ def analysis_one_triplet(triplet) :
 
     test_res = interpretation_test(df_display)
     display_graph_fractionation(df_display, triplet, test_res)
+
+
+"""Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
+def analysis_each_triplet(df_triplets) :
+    for triplet in df_triplets.to_dict('records') :
+       analysis_one_triplet(triplet)
 
 
 """Réalise et interprete le test statistique wilcoxons"""
