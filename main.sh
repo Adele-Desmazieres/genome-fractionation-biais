@@ -157,8 +157,8 @@ then
 	make_iadhore_config # crée le fichier de config iadhore et l'affiche
 	
 	# soumet le job iadhore
-	sbatch --wait $SUBMIT/iadhore_job.sh
-	#i-adhore scripts/iadhore/iadhore.ini
+	#sbatch --wait $SUBMIT/iadhore_job.sh
+	i-adhore scripts/iadhore/iadhore.ini
 
 	# déplace les résultats de tmp vers le dossier de résultats
 	mv $TMP/iadhore/* $RES/iadhore/
@@ -180,7 +180,8 @@ fi
 if [[ python_flag -eq 1 || ! "$(ls -A $RES/python)" ]]
 then 
 	printf "\n### PYTHON ###\n"
-	python3 scripts/python/main2.py $test_flag | tee $RES/python/fractionation_stat.txt 
+	rm $RES/python/*
+	python3 scripts/python/genes_main2.py $test_flag | tee $RES/python/fractionation_stat.txt 
 	printf "python: done\n\n"
 fi
 
