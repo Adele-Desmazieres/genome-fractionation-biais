@@ -13,13 +13,18 @@ pd.options.display.max_rows = 999
 IN = "results/iadhore/"
 OUT = "results/python/"
 PATH_PP = "data/PP_lst/"
+
 if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     IN = "results_test/iadhore/"
     OUT = "results_test/python/"
 
-WINDOW_SIZE = 50 # nombre de gènes dans la fenêtre glissante
-ANCHORS_MIN = 700 # nombre de gènes similaires minimum entre deux chromosomes homologues
+WINDOW_SIZE = 80 # nombre de gènes dans la fenêtre glissante, conseillé entre 50 et 100 gènes par fenêtres
+ANCHORS_MIN = 200 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 200 et 700
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
+
+# si plus de MIN_WINDOWS gènes de PP à suivre ont un nombre de gène MD conservés inférieur ou égale à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, ce n'est pas un effet du fractionation biais
+NO_SYNTENY_MIN_WINDOWS = 200 # nombre de gènes dont la conservation est inférieur au seuil, à partir duquel on considère que le fragment n'est pas synténique, conseillé entre 100 et 500
+NO_SYNTENY_MIN_RATE = 0 # borne inférieure exclue des gènes en synténie, fortement conseillé 0 (inférieur à 1)
 
 
 """
@@ -152,26 +157,34 @@ def make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr) :
     df_PPx.rename(columns={'gene_x':'gene_y', 'gene_y':'gene_x', 'chr_x':'chr_y', 'chr_y':'chr_x'}, inplace=True)
     # concaténation des df l'une au-dessus de l'autre car elles ont les mêmes colonnes 
     df_tmp = pd.concat([df_PPy, df_PPx])
+    #print(df_tmp)
 
     # sélection des paires dont le MD correspond à l'un des 2 chr donnés en arguments 
-    df_MD1 = df_tmp[ (df_tmp.chr_x == MD1) ]
-    df_MD2 = df_tmp[ (df_tmp.chr_x == MD2) ]
+    df_tmp_MD1 = df_tmp[ (df_tmp.chr_x == MD1) ]
+    df_tmp_MD2 = df_tmp[ (df_tmp.chr_x == MD2) ]
     
+    df_tmp_MD1.rename({'gene_y':'gene_PP', 'gene_x':'gene_MD1'}, axis=1, inplace=True)
+    df_tmp_MD2.rename({'gene_y':'gene_PP', 'gene_x':'gene_MD2'}, axis=1, inplace=True)
+
+    # regroupe les gènes MD en listes pour avoir un PP unique par ligne
+    df_MD1 = df_tmp_MD1.groupby('gene_PP')['gene_MD1'].apply(list).reset_index(name='gene_MD1')
+    df_MD2 = df_tmp_MD2.groupby('gene_PP')['gene_MD2'].apply(list).reset_index(name='gene_MD2')
+
     # regrouper par gene PP et compter pour chaque groupe le nbr de genes MD par gene PP
     # au sein d'une df, on n'a que des genes PP uniques
-    df_MD1 = df_MD1.groupby(['gene_y'])['gene_x'].count().reset_index()
-    df_MD2 = df_MD2.groupby(['gene_y'])['gene_x'].count().reset_index()
-    
-    df_MD1.rename({'gene_y':'gene_PP', 'gene_x':'nb_MD1'}, axis=1, inplace=True)
-    df_MD2.rename({'gene_y':'gene_PP', 'gene_x':'nb_MD2'}, axis=1, inplace=True)
+    df_nbMD1 = df_tmp_MD1.groupby(['gene_PP'])['gene_MD1'].count().reset_index(name='nb_MD1')
+    df_nbMD2 = df_tmp_MD2.groupby(['gene_PP'])['gene_MD2'].count().reset_index(name='nb_MD2')
 
-    # merge les deux df sur la colonne PP, en remplissant les manquantes par des 0
+    # merge les quatre df sur la colonne PP, en remplissant les manquantes par des 0
     df_triplet = pd.merge(df_MD1, df_MD2, on='gene_PP', how='outer').fillna(0)
+    df_triplet = pd.merge(df_triplet, df_nbMD1, on='gene_PP', how='outer').fillna(0)
+    df_triplet = pd.merge(df_triplet, df_nbMD2, on='gene_PP', how='outer').fillna(0)
+
     df_triplet = df_triplet.astype({'nb_MD1':'int', 'nb_MD2':'int'}) # convertit en entiers sans erreur avec NaN
     df_triplet.sort_values('gene_PP', inplace=True, ignore_index=True) # trie les lignes par PP croissant, ordonnés comme sur le chromosome
 
-    #df_triplet.to_csv(OUT + "tmp_" + PP + MD1 + MD2 + ".csv", index=False)
     return df_triplet
+
 
 """Ajout des gènes manquants de PP, avec des valeurs de 0 pour les MD correspondants"""
 def add_every_PP(df_triplet, PP) :
@@ -187,7 +200,6 @@ def add_every_PP(df_triplet, PP) :
     # ordonne par gene PP croissant
     df_triplet = df_triplet.sort_values(by=['gene_PP'], ignore_index=True)
 
-    #print(df_triplet)
     return df_triplet
 
 """
@@ -219,16 +231,19 @@ def make_df_window(df_triplet) :
     # crée une new df pour les comptes de la fenetre glissante
     df_window = pd.DataFrame(dtype=float)
     df_window['gene_PP'] = df_triplet.gene_PP
-    df_window['sum_MD1'] = df_triplet.norm_MD1.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
-    df_window['sum_MD2'] = df_triplet.norm_MD2.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE).sum()
+    df_window['sum_MD1'] = df_triplet.norm_MD1.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE, center=True).sum()
+    df_window['sum_MD2'] = df_triplet.norm_MD2.rolling(WINDOW_SIZE, min_periods=WINDOW_SIZE, center=True).sum()
 
     # calcule le pourcentage de sum_MD dans la colonne rate_MD
     df_window['rate_MD1'] = df_window['sum_MD1'] * 100 / WINDOW_SIZE
     df_window['rate_MD2'] = df_window['sum_MD2'] * 100 / WINDOW_SIZE
 
+    # arrondis les pourcentage à 3 décimales
+    df_window.rate_MD1 = df_window.rate_MD1.astype(float).round(decimals = 3)
+    df_window.rate_MD2 = df_window.rate_MD2.astype(float).round(decimals = 3)
+
     df_window.reset_index(drop=True) # réinitialise un index commencant à 0
-    df_window['iteration'] = df_window.index - WINDOW_SIZE + 2
-    #df_window.set_index('iteration', inplace=True)
+    df_window['iteration'] = df_window.index - WINDOW_SIZE // 2 + 1
 
     #print(df_window[WINDOW_SIZE-5:WINDOW_SIZE+30])
     #print("len : ", len(df_window))
@@ -236,7 +251,7 @@ def make_df_window(df_triplet) :
 
 
 """Affiche le graphique du taux de conservation de genes au sein de 2 chromosomes dupliqués"""
-def display_graph_fractionation(df_display, triplet, test_res) :
+def display_graph_fractionation(df_display, triplet, test_res, df_synteny) :
     MD1 = triplet.get("MD1")
     MD2 = triplet.get("MD2")
     PP = triplet.get("PP")
@@ -245,7 +260,8 @@ def display_graph_fractionation(df_display, triplet, test_res) :
     df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
 
     # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
-    fig = px.line(df, x='iteration', y=[MD1, MD2])
+    fig = px.line(df, x=df.index, y=[MD1, MD2])
+    
     fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
                     yaxis_title="genome conservation rate (%)",
                     title="Fractionation biais between " + MD1 + " and " + MD2 + " (compared to " + PP + ")",
@@ -257,9 +273,129 @@ def display_graph_fractionation(df_display, triplet, test_res) :
                     yanchor='bottom',
                     font={'size':17, 'color':'black'},
                     x=0, y=0, showarrow=False)
+    
+    for index, row in df_synteny.iterrows() :
+        fig.add_vrect(x0=row['debut'], x1=row['fin'], 
+                    annotation_text="synténie (" + str(row['debut']) + "-" + str(row['fin']) + ")", 
+                    annotation_position="top left",
+                    fillcolor="green", 
+                    opacity=0.2, 
+                    line_width=0, 
+                    layer="below")
 
     fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
+
+
+""" 
+Trouve les limites des blocs de synténies ou plusieurs valeurs du nb de MD1 sont inférieurs à un seuil
+                        >seuil  somme   groupby+count   <seuil  rolling     diff
+itération norm_MD1      tmp1    tmp2    tmp3            tmp4    synteny     limit
+       1        1        1      1       2               1       1           NaN
+       2        0        0      1       2               1       0           1
+       3        1        1      2       4               0       0           0
+       4        0        0      2       4               0       0           0
+       5      0.2        0      2       4               0       0           0
+       6        0        0      2       4               0       0           0
+       7        1        1      3       1               1       0           0
+       8        1        1      4       1               1       1          -1
+       9        1        1      5       1               1       1           0
+"""
+def make_synteny_limits(df_display) :
+    # pour MD1
+    df_display['tmp_MD1'] = df_display.apply(lambda x: 0 if x.norm_MD1 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
+    df_display['tmp2_MD1'] = df_display.tmp_MD1.cumsum()
+    df_display['tmp3_MD1'] = df_display.groupby('tmp2_MD1')['tmp2_MD1'].transform('count')
+    df_display['tmp4_MD1'] = df_display.apply(lambda x: 0 if x.tmp3_MD1 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
+    # toutes les fenetres contenant au moins une valeur hors du bloc de synténie est hors synténie
+    df_display['synteny_MD1'] = df_display.tmp4_MD1.rolling(WINDOW_SIZE, min_periods=1, center=True).min()
+
+    # idem pour MD2
+    df_display['tmp_MD2'] = df_display.apply(lambda x: 0 if x.norm_MD2 <= NO_SYNTENY_MIN_RATE else 1 , axis=1)
+    df_display['tmp2_MD2'] = df_display.tmp_MD2.cumsum()
+    df_display['tmp3_MD2'] = df_display.groupby('tmp2_MD2')['tmp2_MD2'].transform('count')
+    df_display['tmp4_MD2'] = df_display.apply(lambda x: 0 if x.tmp3_MD2 > NO_SYNTENY_MIN_WINDOWS else 1, axis=1)
+    df_display['synteny_MD2'] = df_display.tmp4_MD2.rolling(WINDOW_SIZE, min_periods=1, center=True).min()
+
+    # sont en synténie seulement les blocs ou MD1 et MD2 sont en synténie
+    df_display['synteny'] = df_display.apply(lambda x: 0 if x.synteny_MD1 == 0 or x.synteny_MD2 == 0 else 1, axis=1)
+    df_display['limit'] = df_display.synteny.diff()
+
+    df_display.drop(['tmp_MD1', 'tmp2_MD1', 'tmp3_MD1', 'tmp4_MD1', 'tmp_MD2', 'tmp2_MD2', 'tmp3_MD2', 'tmp4_MD2'], axis=1, inplace=True) # supprime les colonnes temporaires
+    
+    df_synteny = pd.DataFrame(df_display.loc[df_display['limit'] != 0, 'limit']).reindex()
+    end = len(df_display)
+    if (len(df_synteny) > 1) :
+        df_synteny = traiter_synteny(df_synteny, end)
+    else : # tout le chromosome en synténie, donc dataframe une seule ligne : debut = 1 et fin = fin du chromosome
+        df_synteny = pd.DataFrame([[1, end]], columns=['debut', 'fin'])
+
+    return df_synteny, df_display
+
+"""
+Trouve les limites des fragments de synténie en créant la df qui indique chaque début et fin de bloc de synténie :
+    debut   fin
+0    346   801
+1    945  1069
+2   2283  3583
+"""
+def traiter_synteny(df_synteny, end) :
+    df_synteny.reset_index(inplace=True)
+    if df_synteny.iloc[1]['limit'] == -1 :
+        df_synteny.at[0, 'limit'] = 1 
+    if df_synteny.iloc[len(df_synteny) - 1]['limit'] == 1 :
+        df_synteny.loc[len(df_synteny)] = [end, -1]
+
+    df_debut = df_synteny[df_synteny.limit == 1].reset_index(drop=True)
+    df_debut.rename(columns={'iteration':'debut'}, inplace=True)
+    df_debut.drop(['limit'], axis=1, inplace=True)
+    df_fin = df_synteny[df_synteny.limit == -1].reset_index(drop=True)
+    df_fin.rename(columns={'iteration':'fin'}, inplace=True)
+    df_fin.drop(['limit'], axis=1, inplace=True)
+    df_synteny = pd.concat([df_debut, df_fin], axis=1)
+
+    return df_synteny
+
+
+"""Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
+def analysis_one_triplet(triplet) :
+    PP = triplet.get('PP')
+    MD1 = triplet.get('MD1')
+    MD2 = triplet.get('MD2')
+
+    # crée la df du nbr de MD par triplets de gènes
+    df_genes_triplet = make_df_genes_triplet(PP, MD1, MD2, df_pairs_chr)
+
+    # ajoute les gènes de PP manquants
+    df_genes_triplet = add_every_PP(df_genes_triplet, PP)
+
+    # normalise les nbr de MD entre 0 et 1
+    df_genes_triplet = normaliser_gene_PP(df_genes_triplet)
+
+    # crée la df des valeurs en fenetre glissante, avec un pas=1
+    df_window = make_df_window(df_genes_triplet)
+
+    # merge les df des gènes avec celle des pourcentages, en centrant la fenetre de pourcentage sur le gène
+    # et exporte ces données pour être exploitées par Tanguy
+    df_data_complete = pd.merge(df_genes_triplet, df_window, on='gene_PP', how='outer')
+    df_data_complete = df_data_complete.explode('gene_MD1')
+    df_data_complete = df_data_complete.explode('gene_MD2')
+    df_data_complete.to_csv(OUT + "gene_rate_" + PP + "_" + MD1 + "_" + MD2 + ".csv", index=False)
+
+    # suppression des NaN des données de pourcentage de conservation des gènes
+    df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
+    df_display = df_display.merge(df_genes_triplet[['gene_PP', 'norm_MD1', 'norm_MD2']], on='gene_PP')
+    df_display = df_display.set_index('iteration', drop=True)
+    #df_display.to_csv(OUT + "display_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
+
+    df_synteny, df_display = make_synteny_limits(df_display)
+
+    # affichage des données
+    [print(key,':',value) for key, value in triplet.items()]
+    print("\nSYNTENY : \n", df_synteny)
+    test_res = interpretation_test(df_display)
+    display_graph_fractionation(df_display, triplet, test_res, df_synteny)
+    print("\n==========================================\n")
 
 
 """Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
@@ -268,36 +404,11 @@ def analysis_each_triplet(df_triplets) :
        analysis_one_triplet(triplet)
 
 
-"""Analyse les données de biais de fractionnement d'un triplet et réalise son test statistique"""
-def analysis_one_triplet(triplet) :
-    # crée la df du nbr de MD par triplets de gènes
-    df_genes_triplet = make_df_genes_triplet(triplet.get('PP'), triplet.get('MD1'), triplet.get('MD2'), df_pairs_chr)
-
-    # ajoute les gènes de PP manquants
-    df_genes_triplet = add_every_PP(df_genes_triplet, triplet.get('PP'))
-
-    # normalise les nbr de MD entre 0 et 1
-    df_genes_triplet = normaliser_gene_PP(df_genes_triplet)
-
-    # crée la df des valeurs en fenetre glissante, avec un pas=1
-    df_window = make_df_window(df_genes_triplet)
-
-    # suppression des NaN des données de pourcentage de conservation des gènes
-    df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
-
-    # affichage des données
-    print("\n")
-    [print(key,':',value) for key, value in triplet.items()]
-    #print(df_display[:10])
-
-    test_res = interpretation_test(df_display)
-    display_graph_fractionation(df_display, triplet, test_res)
-
-
-"""Réalise et interprete le test statistique wilcoxons"""
+"""Réalise et interprete le test statistique wilcoxons sur les blocs de synténie"""
 def interpretation_test(df_display) :
-    res = wilcoxon(df_display['rate_MD1'], df_display['rate_MD2'])
-    print(res)
+    df_test = df_display[df_display.synteny == 1]
+    res = wilcoxon(df_test['rate_MD1'], df_test['rate_MD2'])
+    print("\n" + str(res))
     if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
     else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
     return res
