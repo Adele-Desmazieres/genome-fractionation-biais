@@ -1,3 +1,4 @@
+from turtle import position
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -19,7 +20,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     OUT = "results_test/python/"
 
 WINDOW_SIZE = 80 # nombre de gènes dans la fenêtre glissante, conseillé entre 50 et 100 gènes par fenêtres
-ANCHORS_MIN = 200 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 200 et 700
+ANCHORS_MIN = 150 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 200 et 700
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 # si plus de MIN_WINDOWS gènes de PP à suivre ont un nombre de gène MD conservés inférieur ou égale à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, ce n'est pas un effet du fractionation biais
@@ -251,39 +252,106 @@ def make_df_window(df_triplet) :
 
 
 """Affiche le graphique du taux de conservation de genes au sein de 2 chromosomes dupliqués"""
-def display_graph_fractionation(df_display, triplet, test_res, df_synteny) :
-    MD1 = triplet.get("MD1")
-    MD2 = triplet.get("MD2")
-    PP = triplet.get("PP")
+def display_graph_fractionation(results) :
+    fig = go.Figure()
+    colorset = px.colors.qualitative.Set2
+    colorset2 = px.colors.qualitative.Dark2
+    MD_traced = []
 
-    # renomme les colonnes pour avoir une légende compréhensible
-    df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
+    for i in range(len(results)) :
+        triplet = results[i][0]
+        df_display = results[i][1]
+        df_synteny = results[i][2]
+        test_res = results[i][3]
 
-    # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
-    fig = px.line(df, x=df.index, y=[MD1, MD2])
-    
-    fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
-                    yaxis_title="genome conservation rate (%)",
-                    title="Fractionation biais between " + MD1 + " and " + MD2 + " (compared to " + PP + ")",
-                    xaxis_range=[0, len(df)],
-                    yaxis_range=[-1, 101] )
+        MD1 = triplet.get("MD1")
+        MD2 = triplet.get("MD2")
+        PP = triplet.get("PP")
 
-    fig.add_annotation(text=str(test_res),
-                    xanchor='left',
-                    yanchor='bottom',
-                    font={'size':17, 'color':'black'},
-                    x=0, y=0, showarrow=False)
-    
-    for index, row in df_synteny.iterrows() :
-        fig.add_vrect(x0=row['debut'], x1=row['fin'], 
-                    annotation_text="synténie (" + str(row['debut']) + "-" + str(row['fin']) + ")", 
-                    annotation_position="top left",
-                    fillcolor="green", 
-                    opacity=0.2, 
-                    line_width=0, 
-                    layer="below")
+        c1 = colorset[i]
+        c2 = colorset2[i]
 
-    fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
+        # renomme les colonnes pour avoir une légende compréhensible
+        df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
+        
+        # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
+        if not MD1 in MD_traced :
+            MD_traced.append(MD1)
+            fig.add_trace(go.Scatter(x=df_display.index, y=df_display.rate_MD1, name=MD1,
+                        line=dict(color=c1, width=3)))
+
+        if not MD2 in MD_traced :
+            MD_traced.append(MD2)
+            fig.add_trace(go.Scatter(x=df_display.index, y=df_display.rate_MD2, name=MD2,
+                        line=dict(color=c2, width=3)))
+
+
+        fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
+                        yaxis_title="genome conservation rate (%)",
+                        title="Fractionation biais in Malus domestica compared to " + PP,
+                        xaxis_range=[0, len(df)],
+                        yaxis_range=[-1, 101])     
+
+        # add annotation
+        fig.add_annotation(dict(font=dict(color='black',size=15),
+                        x=0,
+                        y=i*2,
+                        showarrow=False,
+                        text=MD1 + " - " + MD2 + " : p-value = " + str(test_res.pvalue),
+                        textangle=0,
+                        xanchor='left',
+                        yanchor='bottom'))
+
+        for index, row in df_synteny.iterrows() :
+            
+            xa = row['debut']
+            xb = row['fin']
+            ya = 100 - i * 4
+            yb = 100 - (i+1) * 4 + 1
+
+            fig.add_shape(type="rect",
+                        x0=xa, 
+                        x1=xb, 
+                        y0=ya, 
+                        y1=yb,
+                        line_width=0,
+                        fillcolor=c1,
+                        layer='below',
+                        opacity=0.3
+            )
+
+            fig.add_annotation(dict(font=dict(color='black',size=15),
+                                        x=xa,
+                                        y=ya,
+                                        showarrow=False,
+                                        text=MD1 + " " + MD2,
+                                        textangle=0,
+                                        xanchor='left',
+                                        yanchor='top'))
+
+            fig.add_vline(x=xa, line_width=3, line_dash="dash", line_color=c1, layer='below')
+            fig.add_vline(x=xb, line_width=3, line_dash="dash", line_color=c1, layer='below')
+        
+        #fig.update_shapes(dict(xref='x', yref='y'))            
+        """
+        for index, row in df_synteny.iterrows() :
+            fig.add_vrect(x0=row['debut'], x1=row['fin'], 
+                        #annotation_text="synténie (" + str(row['debut']) + "-" + str(row['fin']) + ")", 
+                        #annotation_position="top left",
+                        fillcolor=c1, 
+                        opacity=0.2, 
+                        line_width=0, 
+                        layer="below")
+        """
+        """
+        fig.add_annotation(text=str(test_res),
+                        xanchor='left',
+                        yanchor='bottom',
+                        font={'size':17, 'color':'black'},
+                        x=0, y=0, showarrow=False)
+        """
+
+    fig.write_html(OUT + PP + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
 
 
@@ -390,18 +458,29 @@ def analysis_one_triplet(triplet) :
 
     df_synteny, df_display = make_synteny_limits(df_display)
 
-    # affichage des données
+    # affichage des données par triplet
     [print(key,':',value) for key, value in triplet.items()]
     print("\nSYNTENY : \n", df_synteny)
     test_res = interpretation_test(df_display)
-    display_graph_fractionation(df_display, triplet, test_res, df_synteny)
+    #display_graph_fractionation(df_display, triplet, test_res, df_synteny)
     print("\n==========================================\n")
+    
+    return (triplet, df_display, df_synteny, test_res)
+
+
+def analysis_each_PP(df_triplets) :
+    for PP in df_triplets.PP.unique() :
+        analysis_each_triplet(df_triplets, PP)
 
 
 """Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
-def analysis_each_triplet(df_triplets) :
-    for triplet in df_triplets.to_dict('records') :
-       analysis_one_triplet(triplet)
+def analysis_each_triplet(df_triplets, PP) :
+    results = []
+    for triplet in df_triplets[df_triplets.PP == PP].to_dict('records') :
+        #print(triplet)
+        results.append(analysis_one_triplet(triplet))
+    
+    display_graph_fractionation(results)
 
 
 """Réalise et interprete le test statistique wilcoxons sur les blocs de synténie"""
@@ -425,7 +504,8 @@ if __name__=="__main__" :
     print("Python main: running...")
     
     # lance l'analyse sur tous les triplets trouvés
-    analysis_each_triplet(df_triplets)
+    #analysis_each_triplet(df_triplets)
+    analysis_each_PP(df_triplets)
 
     # lance l'analyse d'un seul triplet pour tester
     #test(df_triplets, "Pp03")
