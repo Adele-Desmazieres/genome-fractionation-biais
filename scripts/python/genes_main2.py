@@ -258,8 +258,6 @@ def display_graph_fractionation(results) :
     colorset2 = px.colors.qualitative.Dark2 # couleur similaire foncée
     MD_traced = []
 
-    results = results.sort() # TO TEST
-
     # parcourt toutes les paires MD qui correspondent à ce PP
     for i in range(len(results)) :
         triplet = results[i][0]
@@ -267,35 +265,37 @@ def display_graph_fractionation(results) :
         df_synteny = results[i][2]
         test_res = results[i][3]
 
-        MD1 = "Chr" + triplet.get("MD1")[2:] # TO TEST
-        MD2 = "Chr" + triplet.get("MD2")[2:] # TO TEST
+        # utilise les noms Chr plutot que Md, pour cohérence avec Tanguy
+        MD1 = "Chr" + triplet.get("MD1")[2:]
+        MD2 = "Chr" + triplet.get("MD2")[2:]
         PP = triplet.get("PP")
 
+        # s"lectionne des couleurs du set au meme indice que l'indice de la paire MD1 MD2
         c1 = colorset[i]
         c2 = colorset2[i]
 
         # renomme les colonnes pour avoir une légende compréhensible
         df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
         
-        # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
-        if not MD1 in MD_traced :
+        # diagramme en ligne brisée du pourcentage de conservation des gènes le long de PP
+        if not MD1 in MD_traced : # vérification pas encore tracé
             MD_traced.append(MD1)
             fig.add_trace(go.Scatter(x=df_display.index, y=df_display.rate_MD1, name=MD1,
                         line=dict(color=c1, width=3)))
 
-        if not MD2 in MD_traced :
+        if not MD2 in MD_traced : # vérification pas encore tracé
             MD_traced.append(MD2)
             fig.add_trace(go.Scatter(x=df_display.index, y=df_display.rate_MD2, name=MD2,
                         line=dict(color=c2, width=3)))
 
-
+        # affiche le titre et update les échelles des axes
         fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
                         yaxis_title="genome conservation rate (%)",
                         title="Fractionation biais in Malus domestica compared to " + PP,
                         xaxis_range=[0, len(df)],
                         yaxis_range=[-1, 101])     
 
-        # add annotation
+        # affiche les valeurs de p-value
         fig.add_annotation(dict(font=dict(color='black',size=15),
                         x=0,
                         y=i*2,
@@ -305,6 +305,7 @@ def display_graph_fractionation(results) :
                         xanchor='left',
                         yanchor='bottom'))
 
+        # affiche les limites des blocs de synténie
         for index, row in df_synteny.iterrows() :
             
             xa = row['debut']
@@ -312,6 +313,7 @@ def display_graph_fractionation(results) :
             ya = 100 - i * 4
             yb = 100 - (i+1) * 4 + 1
 
+            # rectangle des blocs de synténie
             fig.add_shape(type="rect",
                         x0=xa, 
                         x1=xb, 
@@ -322,37 +324,18 @@ def display_graph_fractionation(results) :
                         layer='below',
                         opacity=0.3
             )
-
+            # texte dans les rectangles
             fig.add_annotation(dict(font=dict(color='black',size=15),
-                                        x=xa,
-                                        y=ya,
-                                        showarrow=False,
-                                        text=MD1 + " " + MD2,
-                                        textangle=0,
-                                        xanchor='left',
-                                        yanchor='top'))
-
+                        x=xa,
+                        y=ya,
+                        showarrow=False,
+                        text=MD1 + " " + MD2,
+                        textangle=0,
+                        xanchor='left',
+                        yanchor='top'))
+            # lignes verticales délimitant les blocs
             fig.add_vline(x=xa, line_width=3, line_dash="dash", line_color=c1, layer='below')
             fig.add_vline(x=xb, line_width=3, line_dash="dash", line_color=c1, layer='below')
-        
-        #fig.update_shapes(dict(xref='x', yref='y'))            
-        """
-        for index, row in df_synteny.iterrows() :
-            fig.add_vrect(x0=row['debut'], x1=row['fin'], 
-                        #annotation_text="synténie (" + str(row['debut']) + "-" + str(row['fin']) + ")", 
-                        #annotation_position="top left",
-                        fillcolor=c1, 
-                        opacity=0.2, 
-                        line_width=0, 
-                        layer="below")
-        """
-        """
-        fig.add_annotation(text=str(test_res),
-                        xanchor='left',
-                        yanchor='bottom',
-                        font={'size':17, 'color':'black'},
-                        x=0, y=0, showarrow=False)
-        """
 
     fig.write_html(OUT + PP + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
@@ -412,17 +395,22 @@ Trouve les limites des fragments de synténie en créant la df qui indique chaqu
 """
 def traiter_synteny(df_synteny, end) :
     df_synteny.reset_index(inplace=True)
+    # si on commence par la fin d'un bloc, alors on ajoute le début au début du chromosome
     if df_synteny.iloc[1]['limit'] == -1 :
         df_synteny.at[0, 'limit'] = 1 
+    # si on fini par le début d'un bloc, alors on ajoute sa fin à la fin du chromosome
     if df_synteny.iloc[len(df_synteny) - 1]['limit'] == 1 :
         df_synteny.loc[len(df_synteny)] = [end, -1]
 
+    # toutes les positions de début de bloc
     df_debut = df_synteny[df_synteny.limit == 1].reset_index(drop=True)
     df_debut.rename(columns={'iteration':'debut'}, inplace=True)
     df_debut.drop(['limit'], axis=1, inplace=True)
+    # toutes les positions de fin de bloc
     df_fin = df_synteny[df_synteny.limit == -1].reset_index(drop=True)
     df_fin.rename(columns={'iteration':'fin'}, inplace=True)
     df_fin.drop(['limit'], axis=1, inplace=True)
+    # concaténnation des débuts et des fins correspondantes
     df_synteny = pd.concat([df_debut, df_fin], axis=1)
 
     return df_synteny
@@ -479,7 +467,7 @@ def analysis_each_PP(df_triplets) :
 """Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
 def analysis_each_triplet(df_triplets, PP) :
     results = []
-    for triplet in df_triplets[df_triplets.PP == PP].to_dict('records') :
+    for triplet in df_triplets[df_triplets.PP == PP].sort_values(by=['MD1', 'MD2']).to_dict('records') :
         #print(triplet)
         results.append(analysis_one_triplet(triplet))
     
