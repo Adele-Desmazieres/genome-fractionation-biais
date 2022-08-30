@@ -251,21 +251,24 @@ def make_df_window(df_triplet) :
     return df_window
 
 
-"""Affiche le graphique du taux de conservation de genes au sein de 2 chromosomes dupliqués"""
+"""Affiche le graphique du taux de conservation de genes par rapport à un PP"""
 def display_graph_fractionation(results) :
     fig = go.Figure()
-    colorset = px.colors.qualitative.Set2
-    colorset2 = px.colors.qualitative.Dark2
+    colorset = px.colors.qualitative.Set2 # couleur claire
+    colorset2 = px.colors.qualitative.Dark2 # couleur similaire foncée
     MD_traced = []
 
+    results = results.sort() # TO TEST
+
+    # parcourt toutes les paires MD qui correspondent à ce PP
     for i in range(len(results)) :
         triplet = results[i][0]
         df_display = results[i][1]
         df_synteny = results[i][2]
         test_res = results[i][3]
 
-        MD1 = triplet.get("MD1")
-        MD2 = triplet.get("MD2")
+        MD1 = "Chr" + triplet.get("MD1")[2:] # TO TEST
+        MD2 = "Chr" + triplet.get("MD2")[2:] # TO TEST
         PP = triplet.get("PP")
 
         c1 = colorset[i]
