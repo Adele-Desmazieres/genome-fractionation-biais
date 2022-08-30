@@ -246,17 +246,18 @@ def make_df_window(df_triplet) :
     df_window.reset_index(drop=True) # réinitialise un index commencant à 0
     df_window['iteration'] = df_window.index - WINDOW_SIZE // 2 + 1
 
-    #print(df_window[WINDOW_SIZE-5:WINDOW_SIZE+30])
-    #print("len : ", len(df_window))
     return df_window
 
 
-"""Affiche le graphique du taux de conservation de genes par rapport à un PP"""
+"""Affiche le graphique du taux de conservation de genes par rapport à un PP
+source : https://stackoverflow.com/questions/71282496/how-to-add-rectangles-and-text-annotations-in-plotly-python 
+"""
 def display_graph_fractionation(results) :
     fig = go.Figure()
     colorset = px.colors.qualitative.Set2 # couleur claire
     colorset2 = px.colors.qualitative.Dark2 # couleur similaire foncée
     MD_traced = []
+    MD_traces = []
 
     # parcourt toutes les paires MD qui correspondent à ce PP
     for i in range(len(results)) :
@@ -269,6 +270,7 @@ def display_graph_fractionation(results) :
         MD1 = "Chr" + triplet.get("MD1")[2:]
         MD2 = "Chr" + triplet.get("MD2")[2:]
         PP = triplet.get("PP")
+        group = MD1 + "_" + MD2
 
         # s"lectionne des couleurs du set au meme indice que l'indice de la paire MD1 MD2
         c1 = colorset[i]
@@ -279,14 +281,29 @@ def display_graph_fractionation(results) :
         
         # diagramme en ligne brisée du pourcentage de conservation des gènes le long de PP
         if not MD1 in MD_traced : # vérification pas encore tracé
+            trace = dict(x=df_display.index, y=df_display.rate_MD1, name=MD1,
+                        line=dict(color=c1, width=3), legendgroup=group)
+            fig.add_trace(go.Scatter(trace))
             MD_traced.append(MD1)
-            fig.add_trace(go.Scatter(x=df_display.index, y=df_display.rate_MD1, name=MD1,
-                        line=dict(color=c1, width=3)))
+            MD_traces.append(trace)
+        else :
+            trace = MD_traces[MD_traced.index(MD1)]
+            trace['legendgroup'] = group
+            #print(str(trace) + "\n")
+            fig.add_trace(go.Scatter(trace))
 
         if not MD2 in MD_traced : # vérification pas encore tracé
+            trace = dict(x=df_display.index, y=df_display.rate_MD2, name=MD2,
+                        line=dict(color=c2, width=3), legendgroup=group)
+            fig.add_trace(go.Scatter(trace))
             MD_traced.append(MD2)
-            fig.add_trace(go.Scatter(x=df_display.index, y=df_display.rate_MD2, name=MD2,
-                        line=dict(color=c2, width=3)))
+            MD_traces.append(trace)
+        else :
+            trace = MD_traces[MD_traced.index(MD2)]
+            trace['legendgroup'] = group
+            #print(str(trace) + "\n")
+            fig.add_trace(go.Scatter(trace))
+        
 
         # affiche le titre et update les échelles des axes
         fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
@@ -296,7 +313,9 @@ def display_graph_fractionation(results) :
                         yaxis_range=[-1, 101])     
 
         # affiche les valeurs de p-value
-        fig.add_annotation(dict(font=dict(color='black',size=15),
+        fig.add_annotation(dict(
+                        font_color='black',
+                        font_size=15,
                         x=0,
                         y=i*2,
                         showarrow=False,
@@ -314,28 +333,52 @@ def display_graph_fractionation(results) :
             yb = 100 - (i+1) * 4 + 1
 
             # rectangle des blocs de synténie
-            fig.add_shape(type="rect",
-                        x0=xa, 
-                        x1=xb, 
-                        y0=ya, 
-                        y1=yb,
-                        line_width=0,
-                        fillcolor=c1,
-                        layer='below',
-                        opacity=0.3
-            )
+            fig.add_trace(go.Scatter(
+                x=[xa, xb, xb, xa, xa],
+                y=[ya, ya, yb, yb, ya],
+                mode='lines',
+                name=MD1 + " - " + MD2,
+                legendgroup=group,
+                line_width=0,
+                fill='toself',
+                fillcolor=c1,
+                opacity=0.3,
+                showlegend=False))
+
             # texte dans les rectangles
-            fig.add_annotation(dict(font=dict(color='black',size=15),
-                        x=xa,
-                        y=ya,
-                        showarrow=False,
-                        text=MD1 + " " + MD2,
-                        textangle=0,
-                        xanchor='left',
-                        yanchor='top'))
+            fig.add_trace(go.Scatter(
+                x=[(xb + xa) / 2],
+                y=[(yb + ya) / 2],
+                mode='text',
+                legendgroup=group,
+                text=[MD1 + " " + MD2],
+                textfont_size=15,
+                hoverinfo='skip',
+                textposition="middle center",
+                showlegend=False)) 
+            
             # lignes verticales délimitant les blocs
-            fig.add_vline(x=xa, line_width=3, line_dash="dash", line_color=c1, layer='below')
-            fig.add_vline(x=xb, line_width=3, line_dash="dash", line_color=c1, layer='below')
+            fig.add_trace(go.Scatter(
+                x=[xa, xa],
+                y=[0, 100],
+                mode='lines',
+                legendgroup=group,
+                line_width=3,
+                line_dash='dash',
+                line_color=c1,
+                opacity=0.5,
+                showlegend=False))
+            fig.add_trace(go.Scatter(
+                x=[xb, xb],
+                y=[0, 100],
+                mode='lines',
+                legendgroup=group,
+                line_width=3,
+                line_dash='dash',
+                line_color=c1,
+                opacity=0.5,
+                showlegend=False))
+
 
     fig.write_html(OUT + PP + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
@@ -445,16 +488,14 @@ def analysis_one_triplet(triplet) :
     df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
     df_display = df_display.merge(df_genes_triplet[['gene_PP', 'norm_MD1', 'norm_MD2']], on='gene_PP')
     df_display = df_display.set_index('iteration', drop=True)
-    #df_display.to_csv(OUT + "display_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
 
     df_synteny, df_display = make_synteny_limits(df_display)
 
     # affichage des données par triplet
-    [print(key,':',value) for key, value in triplet.items()]
-    print("\nSYNTENY : \n", df_synteny)
+    #[print(key,':',value) for key, value in triplet.items()]
+    #print("\nSYNTENY : \n", df_synteny)
     test_res = interpretation_test(df_display)
-    #display_graph_fractionation(df_display, triplet, test_res, df_synteny)
-    print("\n==========================================\n")
+    #print("\n==========================================\n")
     
     return (triplet, df_display, df_synteny, test_res)
 
@@ -468,7 +509,6 @@ def analysis_each_PP(df_triplets) :
 def analysis_each_triplet(df_triplets, PP) :
     results = []
     for triplet in df_triplets[df_triplets.PP == PP].sort_values(by=['MD1', 'MD2']).to_dict('records') :
-        #print(triplet)
         results.append(analysis_one_triplet(triplet))
     
     display_graph_fractionation(results)
@@ -478,9 +518,9 @@ def analysis_each_triplet(df_triplets, PP) :
 def interpretation_test(df_display) :
     df_test = df_display[df_display.synteny == 1]
     res = wilcoxon(df_test['rate_MD1'], df_test['rate_MD2'])
-    print("\n" + str(res))
-    if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
-    else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    #print("\n" + str(res))
+    #if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    #else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
     return res
 
 
