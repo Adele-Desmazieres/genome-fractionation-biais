@@ -13,7 +13,7 @@
 #SBATCH --partition=p01
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-##SBATCH --mem-per-cpu=15
+#SBATCH --mem-per-cpu=15
 #SBATCH --cpus-per-task=35
 
 ### Email

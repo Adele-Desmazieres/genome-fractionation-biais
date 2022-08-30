@@ -27,8 +27,9 @@ test_flag=0 # si =1, lance les commandes sur les dossiers_test
 blast_flag=0 # si =1, force l'execution de blast
 iadhore_flag=0 # si =1, force l'execution de iadhore
 python_flag=0 # si =1, force l'execution de python
+nucleique_flag="prot"
 
-while getopts 'tbipah' flag; do
+while getopts 'tbipahn' flag; do
   case "${flag}" in
 	t) test_flag=1 ;;
 	b) blast_flag=1 ;;
@@ -37,6 +38,7 @@ while getopts 'tbipah' flag; do
 	a) blast_flag=1
 	   iadhore_flag=1 
 	   python_flag=1 ;;
+	n) nucleique_flag="nucl" ;;
 	h) print_options ;;
 	*) print_usage
 	   exit 1 ;;
@@ -72,18 +74,21 @@ mkdir -p $DB $RES/{blast,iadhore,python}
 if [[ blast_flag -eq 1 || ! -d "$DB/MD-db/" || ! "$(ls -A $DB/MD-db/)" ]]
 then
 	printf "\n### MAKEBLASTDB MD ###"
-
 	if [[ -d "$DB/MD-db" && "$(ls -A $DB/MD-db)" ]] ; then rm -r $DB/MD-db/* ; fi # supprime l'ancienne db si elle existe
-	makeblastdb -in "$DATA/Malus-domestica-proteome.fasta" -dbtype prot -out "$DB/MD-db/MD-db"
+
+	makeblastdb -in "$DATA/Malus-domestica-${nucleique_flag}.fasta" -dbtype $nucleique_flag -out "$DB/MD-db/MD-db"
+
 	printf "makeblastdb MD: done\n"
 fi
+
 # base de données PP
 if [[ blast_flag -eq 1 || ! -d "$DB/PP-db/" || ! "$(ls -A $DB/PP-db/)" ]]
 then
 	printf "\n### MAKEBLASTDB PP ###"
-
 	if [[ -d "$DB/PP-db" && "$(ls -A $DB/PP-db)" ]] ; then rm -r $DB/PP-db/* ; fi # supprime l'ancienne db si elle existe
-	makeblastdb -in "$DATA/Prunus-persica-proteome.fasta" -dbtype prot -out "$DB/PP-db/PP-db"
+
+	makeblastdb -in "$DATA/Prunus-persica-${nucleique_flag}.fasta" -dbtype $nucleique_flag -out "$DB/PP-db/PP-db"
+
 	printf "makeblastdb PP: done\n"
 fi
 
@@ -96,7 +101,7 @@ then
 	printf "DATA=$DATA\nDB=$DB\nOUT=$RES/blast\n"
 
 	# soumet le job blast
-	sbatch --wait --export=ALL,DATA=$DATA,DB=$DB,OUT="$RES/blast" $SUBMIT/blast_job.sh 
+	sbatch --wait --export=ALL,DATA=$DATA,DB=$DB,OUT="$RES/blast",nucleique_flag=$nucleique_flag "$SUBMIT/blast_${nucleique_flag}_job.sh"
 	#    --wait permet d'exit seulement quand le job termine, fait attendre le script sinon
 	#    --export permet d'exporter des variables vers le script du job
 
