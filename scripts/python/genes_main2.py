@@ -1,3 +1,4 @@
+from matplotlib import scale
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -477,6 +478,7 @@ def display_subplot_graph_fractionation(dict_PP_traces) :
                 yaxis_range=[-1, 101]) 
 
         fig_PP.write_html(OUT + PP + ".html")
+        fig_PP.write_image(OUT + PP + ".eps", scale=1, width=1920, height=1080)
 
         # LAYOUT DU GRAPHE GLOBAL EN SUBPLOTS
         fig.update_xaxes(rangemode="nonnegative", row=row, col=col)
@@ -485,6 +487,7 @@ def display_subplot_graph_fractionation(dict_PP_traces) :
         row = (row + 1) if col == 0 else row # la ligne augmente quand on reprend à la colonne 1
 
     fig.write_html(OUT + "global.html")
+    fig.write_image(OUT + "global.eps", scale=1, width=1920, height=1080)
 
 
 """ 
@@ -595,12 +598,12 @@ def analysis_one_triplet(triplet) :
     df_synteny, df_display = make_synteny_limits(df_display)
 
     # affichage des données par triplet
-    #[print(key,':',value) for key, value in triplet.items()]
+    [print(key,':',value) for key, value in triplet.items()]
     #print("\nSYNTENY : \n", df_synteny)
     test_res = None
     if len(df_display[df_display.synteny == 1]) > 1 :
         test_res = interpretation_test(df_display)
-    #print("\n==========================================\n")
+    print("\n==========================================\n")
     
     return (triplet, df_display, df_synteny, test_res)
 
@@ -630,9 +633,9 @@ def analysis_each_triplet(df_triplets, PP) :
 def interpretation_test(df_display) :
     df_test = df_display[df_display.synteny == 1]
     res = wilcoxon(df_test['rate_MD1'], df_test['rate_MD2'])
-    #print("\n" + str(res))
-    #if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
-    #else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    print("\n" + str(res))
+    if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
     return res
 
 
