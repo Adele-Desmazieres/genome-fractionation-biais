@@ -12,8 +12,8 @@
 #SBATCH --partition=p01
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-##SBATCH --mem-per-cpu=15
-#SBATCH --cpus-per-task=35
+#SBATCH --mem-per-cpu=15
+#SBATCH --cpus-per-task=10
 
 ### Email
 #SBATCH --mail-user=adele.desmazieres@inrae.fr
@@ -37,17 +37,17 @@ echo '########################################'
 #OUT="results/blast"
 
 
-blastp \
- -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/MD-db/MD-db" -out "$OUT/MD_vs_MD.txt" \
- -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
+blastn \
+ -query "$DATA/Malus-domestica-${nucleique_flag}.fasta" -db "$DB/MD-db/MD-db" -out "$OUT/MD_vs_MD.txt" \
+ -evalue 1e-5 -max_target_seqs 5 -num_threads 10 -outfmt 6
 
-blastp \
- -query "$DATA/Prunus-persica-proteome.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/PP_vs_PP.txt" \
- -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
+blastn \
+ -query "$DATA/Prunus-persica-${nucleique_flag}.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/PP_vs_PP.txt" \
+ -evalue 1e-5 -max_target_seqs 5 -num_threads 10 -outfmt 6
 
-blastp \
- -query "$DATA/Malus-domestica-proteome.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/MD_vs_PP.txt" \
- -evalue 1e-5 -max_target_seqs 5 -num_threads 35 -outfmt 6
+blastn \
+ -query "$DATA/Malus-domestica-${nucleique_flag}.fasta" -db "$DB/PP-db/PP-db" -out "$OUT/MD_vs_PP.txt" \
+ -evalue 1e-5 -max_target_seqs 5 -num_threads 10 -outfmt 6
 
 
 echo "////////// job done //////////"

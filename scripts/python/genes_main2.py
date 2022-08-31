@@ -1,6 +1,7 @@
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from scipy.stats import wilcoxon
 import numpy as np
 import sys
@@ -19,7 +20,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     OUT = "results_test/python/"
 
 WINDOW_SIZE = 80 # nombre de gènes dans la fenêtre glissante, conseillé entre 50 et 100 gènes par fenêtres
-ANCHORS_MIN = 200 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 200 et 700
+ANCHORS_MIN = 150 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 150 et 700 (en-dessous de 150 trop de matchs, graphes cassés, au-dessus de 700 pas assez de matchs)
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 # si plus de MIN_WINDOWS gènes de PP à suivre ont un nombre de gène MD conservés inférieur ou égale à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, ce n'est pas un effet du fractionation biais
@@ -245,46 +246,245 @@ def make_df_window(df_triplet) :
     df_window.reset_index(drop=True) # réinitialise un index commencant à 0
     df_window['iteration'] = df_window.index - WINDOW_SIZE // 2 + 1
 
-    #print(df_window[WINDOW_SIZE-5:WINDOW_SIZE+30])
-    #print("len : ", len(df_window))
     return df_window
 
 
-"""Affiche le graphique du taux de conservation de genes au sein de 2 chromosomes dupliqués"""
-def display_graph_fractionation(df_display, triplet, test_res, df_synteny) :
-    MD1 = triplet.get("MD1")
-    MD2 = triplet.get("MD2")
-    PP = triplet.get("PP")
+"""Affiche le graphique du taux de conservation de genes par rapport à un PP
+source : https://stackoverflow.com/questions/71282496/how-to-add-rectangles-and-text-annotations-in-plotly-python 
+"""
+def display_graph_fractionation(results) :
+    #fig = go.Figure()
+    colorset = px.colors.qualitative.Set2 + px.colors.qualitative.Pastel# couleur claire
+    colorset2 = px.colors.qualitative.Dark2 + px.colors.qualitative.Safe # couleur similaire foncée
+    MD_traced = []
+    MD_dict_traces = []
+    all_traces = []
 
-    # renomme les colonnes pour avoir une légende compréhensible
-    df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
-
-    # diagramme à ligne brisée du pourcentage de conservation des gènes le long de 2 chromosomes
-    fig = px.line(df, x=df.index, y=[MD1, MD2])
-    
+    """
+    # affiche le titre et update les échelles des axes
     fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
                     yaxis_title="genome conservation rate (%)",
-                    title="Fractionation biais between " + MD1 + " and " + MD2 + " (compared to " + PP + ")",
+                    title="Fractionation biais in Malus domestica compared to " + PP,
                     xaxis_range=[0, len(df)],
-                    yaxis_range=[-1, 101] )
+                    yaxis_range=[-1, 101])     
+    """
+    # parcourt toutes les paires MD qui correspondent à ce PP
+    for i in range(len(results)) :
+        triplet = results[i][0]
+        df_display = results[i][1]
+        df_synteny = results[i][2]
+        test_res = results[i][3]
 
-    fig.add_annotation(text=str(test_res),
-                    xanchor='left',
-                    yanchor='bottom',
-                    font={'size':17, 'color':'black'},
-                    x=0, y=0, showarrow=False)
-    
-    for index, row in df_synteny.iterrows() :
-        fig.add_vrect(x0=row['debut'], x1=row['fin'], 
-                    annotation_text="synténie (" + str(row['debut']) + "-" + str(row['fin']) + ")", 
-                    annotation_position="top left",
-                    fillcolor="green", 
-                    opacity=0.2, 
-                    line_width=0, 
-                    layer="below")
+        # utilise les noms Chr plutot que Md, pour cohérence avec Tanguy
+        MD1 = "Chr" + triplet.get("MD1")[2:]
+        MD2 = "Chr" + triplet.get("MD2")[2:]
+        PP = triplet.get("PP")
+        group = MD1 + "_" + MD2
 
-    fig.write_html(OUT + PP + "_" + MD1 + "_" + MD2 + ".html")
+        # sélectionne des couleurs du set au meme indice que l'indice de la paire MD1 MD2
+        c1 = colorset[i]
+        c2 = colorset2[i]
+
+        # renomme les colonnes pour avoir une légende compréhensible
+        #df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
+        
+        # trace les lignes brisées du pourcentage de conservation des gènes le long de PP
+        if not MD1 in MD_traced : # vérifie que ce n'est pas encore tracé
+            trace = dict(x=df_display.index, 
+                        y=df_display.rate_MD1, 
+                        name=MD1,
+                        line_color=c1, 
+                        line_width=3, 
+                        legendgroup=group, 
+                        uid="ligne_"+MD1,
+                        opacity=0.9)
+
+            all_traces.append(trace)
+            MD_traced.append(MD1)
+            MD_dict_traces.append(trace)
+
+        else :
+            trace = MD_dict_traces[MD_traced.index(MD1)]
+            trace['legendgroup'] = group
+            #print(str(trace) + "\n")
+            all_traces.append(trace)
+
+        # idem pour MD2
+        if not MD2 in MD_traced : # vérifie que ce n'est pas encore tracé
+            trace = dict(x=df_display.index, 
+                        y=df_display.rate_MD2, 
+                        name=MD2,
+                        line_color=c2, 
+                        line_width=3, 
+                        legendgroup=group, 
+                        uid="ligne_"+MD2,
+                        opacity=0.9)
+
+            all_traces.append(trace)
+            MD_traced.append(MD2)
+            MD_dict_traces.append(trace)
+
+        else :
+            trace = MD_dict_traces[MD_traced.index(MD2)]
+            trace['legendgroup'] = group
+            #print(str(trace) + "\n")
+            all_traces.append(trace)
+        
+        # affiche les valeurs de p-value
+        text_pvalue = "" if test_res == None else MD1 + " - " + MD2 + " : p-value = " + str(test_res.pvalue)
+        all_traces.append(dict(
+                x=[0],
+                y=[2*i],
+                mode='text',
+                #legendgroup=group,
+                text=[text_pvalue],
+                textfont_size=15,
+                hoverinfo='skip',
+                textposition="top right",
+                showlegend=False,
+                uid="p-value"
+        ))
+
+        # pour chaque bloc de synténie, affiche les limites du bloc
+        for index, row in df_synteny.iterrows() :
+            
+            xa = row['debut']
+            xb = row['fin']
+            ya = 100 - i * 4
+            yb = 100 - (i+1) * 4 + 1
+
+            # rectangle des blocs de synténie
+            all_traces.append(dict(
+                x=[xa, xb, xb, xa, xa],
+                y=[ya, ya, yb, yb, ya],
+                mode='lines',
+                name=MD1 + " " + MD2,
+                legendgroup=group,
+                line_width=0,
+                fill='toself',
+                fillcolor=c1,
+                opacity=0.3,
+                showlegend=False,
+                uid="synt_rect_"+MD1+"_"+MD2))
+
+            # texte dans les rectangles
+            all_traces.append(dict(
+                x=[(xb + xa) / 2],
+                y=[(yb + ya) / 2],
+                mode='text',
+                legendgroup=group,
+                text=[MD1 + " " + MD2],
+                textfont_size=15,
+                hoverinfo='skip',
+                textposition="middle center",
+                showlegend=False,
+                uid="synt_text_"+MD1+"_"+MD2)) 
+            
+            # lignes verticales délimitant les blocs
+            all_traces.append(dict(
+                x=[xa, xa],
+                y=[0, 100],
+                mode='lines',
+                legendgroup=group,
+                line_width=3,
+                line_dash='dash',
+                line_color=c1,
+                opacity=0.5,
+                showlegend=False,
+                hoverinfo='skip',
+                uid="synt_vlin_"+MD1+"_"+MD2))
+
+            all_traces.append(dict(
+                x=[xb, xb],
+                y=[0, 100],
+                mode='lines',
+                legendgroup=group,
+                line_width=3,
+                line_dash='dash',
+                line_color=c1,
+                opacity=0.5,
+                showlegend=False,
+                hoverinfo='skip',
+                uid="synt_vlin_"+MD1+"_"+MD2))
+
     #fig.show() # ne fonctionne pas en ssh ?
+    return all_traces
+
+
+"""Affiche les graphes en subplot"""
+def display_subplot_graph_fractionation(dict_PP_traces) :
+    #chrom_MD = {1:"Md01", 2:"Md02", 3:"Md03", 4:"Md04", 5:"Md05"}
+    colorset = px.colors.qualitative.Pastel + px.colors.qualitative.Dark2 # couleur subplot
+
+    MD_legend = []
+
+    fig = make_subplots(rows=3, cols=3, 
+                subplot_titles=list(dict_PP_traces.keys()), 
+                shared_yaxes=True, 
+                horizontal_spacing=0.05, 
+                vertical_spacing=0.05)
+    
+    row = 0
+    col = 0
+
+    for PP, traces in dict_PP_traces.items() : 
+        fig_PP = go.Figure()
+
+        for trace in traces :
+            fig_PP.add_trace(go.Scatter(trace))
+
+            # FORMATAGE DU GRAPHE GLOBAL EN SUBPLOT
+            # formate les courbes de MD1 et MD2
+            if trace.get("uid") != None and trace.get("uid")[:6] == "ligne_" :
+                MD = trace.get("uid")[6:]
+                trace['legendgroup'] = MD
+                numero = int(MD[len(MD)-2:])
+                trace['line_color'] = colorset[numero]
+                if MD in MD_legend :
+                    trace['showlegend'] = False
+                else :
+                    MD_legend.append(MD)
+                    #trace['legendrank'] = numero # plotly v5.0 NECESSAIRE !!!
+
+            # formate les traces qui indiquent les blocs de synténie
+            if trace.get("uid") != None and trace.get("uid")[:4] == "synt" :
+
+                MD1 = trace.get("uid")[10:15]
+                MD2 = trace.get("uid")[16:]
+
+                if trace.get("uid")[5:9] == "rect" or trace.get("uid")[5:9] == "vlin" :
+
+                    # change la couleur et groupe de légende des rectangles de synténie 
+                    trace['legendgroup'] = MD1
+                    trace['fillcolor'] = colorset[int(MD1[len(MD1)-2:])]
+                    trace['line_color'] = colorset[int(MD1[len(MD1)-2:])]
+
+                    fig.add_trace(go.Scatter(trace), row=row+1, col=col+1)
+
+                    trace['legendgroup'] = MD2
+                    trace['fillcolor'] = colorset[int(MD2[len(MD2)-2:])]
+                    trace['line_color'] = colorset[int(MD2[len(MD2)-2:])]
+
+            if trace.get("uid") == None or (trace.get('uid') != "p-value" and trace.get("uid")[5:9] != "text") :
+                fig.add_trace(go.Scatter(trace), row=row+1, col=col+1)
+
+
+        # LAYOUT DES GRAPHES PAR GENE PP
+        fig_PP.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
+                yaxis_title="genome conservation rate (%)",
+                title="Fractionation biais in Malus domestica compared to " + PP,
+                xaxis_rangemode="nonnegative",
+                yaxis_range=[-1, 101]) 
+
+        fig_PP.write_html(OUT + PP + ".html")
+
+        # LAYOUT DU GRAPHE GLOBAL EN SUBPLOTS
+        fig.update_xaxes(rangemode="nonnegative", row=row, col=col)
+
+        col = (col + 1) % 3 # la colonne augmente de 1 congrue au nombre de colonnes
+        row = (row + 1) if col == 0 else row # la ligne augmente quand on reprend à la colonne 1
+
+    fig.write_html(OUT + "global.html")
 
 
 """ 
@@ -341,17 +541,22 @@ Trouve les limites des fragments de synténie en créant la df qui indique chaqu
 """
 def traiter_synteny(df_synteny, end) :
     df_synteny.reset_index(inplace=True)
+    # si on commence par la fin d'un bloc, alors on ajoute le début au début du chromosome
     if df_synteny.iloc[1]['limit'] == -1 :
         df_synteny.at[0, 'limit'] = 1 
+    # si on fini par le début d'un bloc, alors on ajoute sa fin à la fin du chromosome
     if df_synteny.iloc[len(df_synteny) - 1]['limit'] == 1 :
         df_synteny.loc[len(df_synteny)] = [end, -1]
 
+    # toutes les positions de début de bloc
     df_debut = df_synteny[df_synteny.limit == 1].reset_index(drop=True)
     df_debut.rename(columns={'iteration':'debut'}, inplace=True)
     df_debut.drop(['limit'], axis=1, inplace=True)
+    # toutes les positions de fin de bloc
     df_fin = df_synteny[df_synteny.limit == -1].reset_index(drop=True)
     df_fin.rename(columns={'iteration':'fin'}, inplace=True)
     df_fin.drop(['limit'], axis=1, inplace=True)
+    # concaténnation des débuts et des fins correspondantes
     df_synteny = pd.concat([df_debut, df_fin], axis=1)
 
     return df_synteny
@@ -386,31 +591,48 @@ def analysis_one_triplet(triplet) :
     df_display = df_window.dropna(subset=['rate_MD1', 'rate_MD2'])
     df_display = df_display.merge(df_genes_triplet[['gene_PP', 'norm_MD1', 'norm_MD2']], on='gene_PP')
     df_display = df_display.set_index('iteration', drop=True)
-    #df_display.to_csv(OUT + "display_" + PP + "_" + MD1 + "_" + MD2 + ".csv")
 
     df_synteny, df_display = make_synteny_limits(df_display)
 
-    # affichage des données
-    [print(key,':',value) for key, value in triplet.items()]
-    print("\nSYNTENY : \n", df_synteny)
-    test_res = interpretation_test(df_display)
-    display_graph_fractionation(df_display, triplet, test_res, df_synteny)
-    print("\n==========================================\n")
+    # affichage des données par triplet
+    #[print(key,':',value) for key, value in triplet.items()]
+    #print("\nSYNTENY : \n", df_synteny)
+    test_res = None
+    if len(df_display[df_display.synteny == 1]) > 1 :
+        test_res = interpretation_test(df_display)
+    #print("\n==========================================\n")
+    
+    return (triplet, df_display, df_synteny, test_res)
 
 
-"""Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
-def analysis_each_triplet(df_triplets) :
-    for triplet in df_triplets.to_dict('records') :
-       analysis_one_triplet(triplet)
+def analysis_each_PP(df_triplets) :
+    dict_PP_traces = {}
+
+    for PP in df_triplets.PP.unique() :
+        all_traces = analysis_each_triplet(df_triplets, PP)
+        dict_PP_traces[PP] = all_traces
+
+    display_subplot_graph_fractionation(dict_PP_traces)
+
+
+"""Parcourt la liste des triplets du chromosome PP pour en faire des graphes de biais de fractionnement"""
+def analysis_each_triplet(df_triplets, PP) :
+    results = []
+
+    for triplet in df_triplets[df_triplets.PP == PP].sort_values(by=['MD1', 'MD2']).to_dict('records') :
+        results.append(analysis_one_triplet(triplet))
+    
+    all_traces = display_graph_fractionation(results)
+    return all_traces
 
 
 """Réalise et interprete le test statistique wilcoxons sur les blocs de synténie"""
 def interpretation_test(df_display) :
     df_test = df_display[df_display.synteny == 1]
     res = wilcoxon(df_test['rate_MD1'], df_test['rate_MD2'])
-    print("\n" + str(res))
-    if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
-    else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    #print("\n" + str(res))
+    #if (res.pvalue < ALPHA) : print("TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
+    #else : print("TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=", ALPHA, ". ", sep='')
     return res
 
 
@@ -425,7 +647,8 @@ if __name__=="__main__" :
     print("Python main: running...")
     
     # lance l'analyse sur tous les triplets trouvés
-    analysis_each_triplet(df_triplets)
+    #analysis_each_triplet(df_triplets)
+    analysis_each_PP(df_triplets)
 
     # lance l'analyse d'un seul triplet pour tester
     #test(df_triplets, "Pp03")
