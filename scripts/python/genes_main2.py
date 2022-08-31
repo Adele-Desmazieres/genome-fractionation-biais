@@ -1,7 +1,7 @@
-from turtle import position
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from scipy.stats import wilcoxon
 import numpy as np
 import sys
@@ -20,7 +20,7 @@ if len(sys.argv) >= 2 and sys.argv[1] == '1' :
     OUT = "results_test/python/"
 
 WINDOW_SIZE = 80 # nombre de gènes dans la fenêtre glissante, conseillé entre 50 et 100 gènes par fenêtres
-ANCHORS_MIN = 150 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 200 et 700
+ANCHORS_MIN = 150 # nombre de gènes similaires minimum entre deux chromosomes homologues, conseillé n'importe quelle valeur entre 150 et 700 (en-dessous de 150 trop de matchs, graphes cassés, au-dessus de 700 pas assez de matchs)
 ALPHA = 0.05 # risque alpha=5% pour le test statistique
 
 # si plus de MIN_WINDOWS gènes de PP à suivre ont un nombre de gène MD conservés inférieur ou égale à MIN_RATE, alors on exclue ces données de l'analyse statistique, car c'est un fragment entier du chromosome qui manque, ce n'est pas un effet du fractionation biais
@@ -253,12 +253,21 @@ def make_df_window(df_triplet) :
 source : https://stackoverflow.com/questions/71282496/how-to-add-rectangles-and-text-annotations-in-plotly-python 
 """
 def display_graph_fractionation(results) :
-    fig = go.Figure()
-    colorset = px.colors.qualitative.Set2 # couleur claire
-    colorset2 = px.colors.qualitative.Dark2 # couleur similaire foncée
+    #fig = go.Figure()
+    colorset = px.colors.qualitative.Set2 + px.colors.qualitative.Pastel# couleur claire
+    colorset2 = px.colors.qualitative.Dark2 + px.colors.qualitative.Safe # couleur similaire foncée
     MD_traced = []
-    MD_traces = []
+    MD_dict_traces = []
+    all_traces = []
 
+    """
+    # affiche le titre et update les échelles des axes
+    fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
+                    yaxis_title="genome conservation rate (%)",
+                    title="Fractionation biais in Malus domestica compared to " + PP,
+                    xaxis_range=[0, len(df)],
+                    yaxis_range=[-1, 101])     
+    """
     # parcourt toutes les paires MD qui correspondent à ce PP
     for i in range(len(results)) :
         triplet = results[i][0]
@@ -272,59 +281,71 @@ def display_graph_fractionation(results) :
         PP = triplet.get("PP")
         group = MD1 + "_" + MD2
 
-        # s"lectionne des couleurs du set au meme indice que l'indice de la paire MD1 MD2
+        # sélectionne des couleurs du set au meme indice que l'indice de la paire MD1 MD2
         c1 = colorset[i]
         c2 = colorset2[i]
 
         # renomme les colonnes pour avoir une légende compréhensible
-        df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
+        #df = df_display.rename(columns={'rate_MD1': MD1, 'rate_MD2': MD2})
         
-        # diagramme en ligne brisée du pourcentage de conservation des gènes le long de PP
-        if not MD1 in MD_traced : # vérification pas encore tracé
-            trace = dict(x=df_display.index, y=df_display.rate_MD1, name=MD1,
-                        line=dict(color=c1, width=3), legendgroup=group)
-            fig.add_trace(go.Scatter(trace))
+        # trace les lignes brisées du pourcentage de conservation des gènes le long de PP
+        if not MD1 in MD_traced : # vérifie que ce n'est pas encore tracé
+            trace = dict(x=df_display.index, 
+                        y=df_display.rate_MD1, 
+                        name=MD1,
+                        line_color=c1, 
+                        line_width=3, 
+                        legendgroup=group, 
+                        uid="ligne_"+MD1,
+                        opacity=0.9)
+
+            all_traces.append(trace)
             MD_traced.append(MD1)
-            MD_traces.append(trace)
+            MD_dict_traces.append(trace)
+
         else :
-            trace = MD_traces[MD_traced.index(MD1)]
+            trace = MD_dict_traces[MD_traced.index(MD1)]
             trace['legendgroup'] = group
             #print(str(trace) + "\n")
-            fig.add_trace(go.Scatter(trace))
+            all_traces.append(trace)
 
-        if not MD2 in MD_traced : # vérification pas encore tracé
-            trace = dict(x=df_display.index, y=df_display.rate_MD2, name=MD2,
-                        line=dict(color=c2, width=3), legendgroup=group)
-            fig.add_trace(go.Scatter(trace))
+        # idem pour MD2
+        if not MD2 in MD_traced : # vérifie que ce n'est pas encore tracé
+            trace = dict(x=df_display.index, 
+                        y=df_display.rate_MD2, 
+                        name=MD2,
+                        line_color=c2, 
+                        line_width=3, 
+                        legendgroup=group, 
+                        uid="ligne_"+MD2,
+                        opacity=0.9)
+
+            all_traces.append(trace)
             MD_traced.append(MD2)
-            MD_traces.append(trace)
+            MD_dict_traces.append(trace)
+
         else :
-            trace = MD_traces[MD_traced.index(MD2)]
+            trace = MD_dict_traces[MD_traced.index(MD2)]
             trace['legendgroup'] = group
             #print(str(trace) + "\n")
-            fig.add_trace(go.Scatter(trace))
+            all_traces.append(trace)
         
-
-        # affiche le titre et update les échelles des axes
-        fig.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
-                        yaxis_title="genome conservation rate (%)",
-                        title="Fractionation biais in Malus domestica compared to " + PP,
-                        xaxis_range=[0, len(df)],
-                        yaxis_range=[-1, 101])     
-
         # affiche les valeurs de p-value
-        fig.add_annotation(dict(
-                        font_color='black',
-                        font_size=15,
-                        x=0,
-                        y=i*2,
-                        showarrow=False,
-                        text=MD1 + " - " + MD2 + " : p-value = " + str(test_res.pvalue),
-                        textangle=0,
-                        xanchor='left',
-                        yanchor='bottom'))
+        text_pvalue = "" if test_res == None else MD1 + " - " + MD2 + " : p-value = " + str(test_res.pvalue)
+        all_traces.append(dict(
+                x=[0],
+                y=[2*i],
+                mode='text',
+                #legendgroup=group,
+                text=[text_pvalue],
+                textfont_size=15,
+                hoverinfo='skip',
+                textposition="top right",
+                showlegend=False,
+                uid="p-value"
+        ))
 
-        # affiche les limites des blocs de synténie
+        # pour chaque bloc de synténie, affiche les limites du bloc
         for index, row in df_synteny.iterrows() :
             
             xa = row['debut']
@@ -333,20 +354,21 @@ def display_graph_fractionation(results) :
             yb = 100 - (i+1) * 4 + 1
 
             # rectangle des blocs de synténie
-            fig.add_trace(go.Scatter(
+            all_traces.append(dict(
                 x=[xa, xb, xb, xa, xa],
                 y=[ya, ya, yb, yb, ya],
                 mode='lines',
-                name=MD1 + " - " + MD2,
+                name=MD1 + " " + MD2,
                 legendgroup=group,
                 line_width=0,
                 fill='toself',
                 fillcolor=c1,
                 opacity=0.3,
-                showlegend=False))
+                showlegend=False,
+                uid="synt_rect_"+MD1+"_"+MD2))
 
             # texte dans les rectangles
-            fig.add_trace(go.Scatter(
+            all_traces.append(dict(
                 x=[(xb + xa) / 2],
                 y=[(yb + ya) / 2],
                 mode='text',
@@ -355,10 +377,11 @@ def display_graph_fractionation(results) :
                 textfont_size=15,
                 hoverinfo='skip',
                 textposition="middle center",
-                showlegend=False)) 
+                showlegend=False,
+                uid="synt_text_"+MD1+"_"+MD2)) 
             
             # lignes verticales délimitant les blocs
-            fig.add_trace(go.Scatter(
+            all_traces.append(dict(
                 x=[xa, xa],
                 y=[0, 100],
                 mode='lines',
@@ -367,8 +390,11 @@ def display_graph_fractionation(results) :
                 line_dash='dash',
                 line_color=c1,
                 opacity=0.5,
-                showlegend=False))
-            fig.add_trace(go.Scatter(
+                showlegend=False,
+                hoverinfo='skip',
+                uid="synt_vlin_"+MD1+"_"+MD2))
+
+            all_traces.append(dict(
                 x=[xb, xb],
                 y=[0, 100],
                 mode='lines',
@@ -377,11 +403,88 @@ def display_graph_fractionation(results) :
                 line_dash='dash',
                 line_color=c1,
                 opacity=0.5,
-                showlegend=False))
+                showlegend=False,
+                hoverinfo='skip',
+                uid="synt_vlin_"+MD1+"_"+MD2))
 
-
-    fig.write_html(OUT + PP + ".html")
     #fig.show() # ne fonctionne pas en ssh ?
+    return all_traces
+
+
+"""Affiche les graphes en subplot"""
+def display_subplot_graph_fractionation(dict_PP_traces) :
+    #chrom_MD = {1:"Md01", 2:"Md02", 3:"Md03", 4:"Md04", 5:"Md05"}
+    colorset = px.colors.qualitative.Pastel + px.colors.qualitative.Dark2 # couleur subplot
+
+    MD_legend = []
+
+    fig = make_subplots(rows=3, cols=3, 
+                subplot_titles=list(dict_PP_traces.keys()), 
+                shared_yaxes=True, 
+                horizontal_spacing=0.05, 
+                vertical_spacing=0.05)
+    
+    row = 0
+    col = 0
+
+    for PP, traces in dict_PP_traces.items() : 
+        fig_PP = go.Figure()
+
+        for trace in traces :
+            fig_PP.add_trace(go.Scatter(trace))
+
+            # FORMATAGE DU GRAPHE GLOBAL EN SUBPLOT
+            # formate les courbes de MD1 et MD2
+            if trace.get("uid") != None and trace.get("uid")[:6] == "ligne_" :
+                MD = trace.get("uid")[6:]
+                trace['legendgroup'] = MD
+                numero = int(MD[len(MD)-2:])
+                trace['line_color'] = colorset[numero]
+                if MD in MD_legend :
+                    trace['showlegend'] = False
+                else :
+                    MD_legend.append(MD)
+                    #trace['legendrank'] = numero # plotly v5.0 NECESSAIRE !!!
+
+            # formate les traces qui indiquent les blocs de synténie
+            if trace.get("uid") != None and trace.get("uid")[:4] == "synt" :
+
+                MD1 = trace.get("uid")[10:15]
+                MD2 = trace.get("uid")[16:]
+
+                if trace.get("uid")[5:9] == "rect" or trace.get("uid")[5:9] == "vlin" :
+
+                    # change la couleur et groupe de légende des rectangles de synténie 
+                    trace['legendgroup'] = MD1
+                    trace['fillcolor'] = colorset[int(MD1[len(MD1)-2:])]
+                    trace['line_color'] = colorset[int(MD1[len(MD1)-2:])]
+
+                    fig.add_trace(go.Scatter(trace), row=row+1, col=col+1)
+
+                    trace['legendgroup'] = MD2
+                    trace['fillcolor'] = colorset[int(MD2[len(MD2)-2:])]
+                    trace['line_color'] = colorset[int(MD2[len(MD2)-2:])]
+
+            if trace.get("uid") == None or (trace.get('uid') != "p-value" and trace.get("uid")[5:9] != "text") :
+                fig.add_trace(go.Scatter(trace), row=row+1, col=col+1)
+
+
+        # LAYOUT DES GRAPHES PAR GENE PP
+        fig_PP.update_layout(xaxis_title="window (size = " + str(WINDOW_SIZE) + ") iteration along " + PP,
+                yaxis_title="genome conservation rate (%)",
+                title="Fractionation biais in Malus domestica compared to " + PP,
+                xaxis_rangemode="nonnegative",
+                yaxis_range=[-1, 101]) 
+
+        fig_PP.write_html(OUT + PP + ".html")
+
+        # LAYOUT DU GRAPHE GLOBAL EN SUBPLOTS
+        fig.update_xaxes(rangemode="nonnegative", row=row, col=col)
+
+        col = (col + 1) % 3 # la colonne augmente de 1 congrue au nombre de colonnes
+        row = (row + 1) if col == 0 else row # la ligne augmente quand on reprend à la colonne 1
+
+    fig.write_html(OUT + "global.html")
 
 
 """ 
@@ -494,24 +597,33 @@ def analysis_one_triplet(triplet) :
     # affichage des données par triplet
     #[print(key,':',value) for key, value in triplet.items()]
     #print("\nSYNTENY : \n", df_synteny)
-    test_res = interpretation_test(df_display)
+    test_res = None
+    if len(df_display[df_display.synteny == 1]) > 1 :
+        test_res = interpretation_test(df_display)
     #print("\n==========================================\n")
     
     return (triplet, df_display, df_synteny, test_res)
 
 
 def analysis_each_PP(df_triplets) :
+    dict_PP_traces = {}
+
     for PP in df_triplets.PP.unique() :
-        analysis_each_triplet(df_triplets, PP)
+        all_traces = analysis_each_triplet(df_triplets, PP)
+        dict_PP_traces[PP] = all_traces
+
+    display_subplot_graph_fractionation(dict_PP_traces)
 
 
-"""Parcourt la liste des triplets de chromosomes pour en faire des graphes de biais de fractionnement"""
+"""Parcourt la liste des triplets du chromosome PP pour en faire des graphes de biais de fractionnement"""
 def analysis_each_triplet(df_triplets, PP) :
     results = []
+
     for triplet in df_triplets[df_triplets.PP == PP].sort_values(by=['MD1', 'MD2']).to_dict('records') :
         results.append(analysis_one_triplet(triplet))
     
-    display_graph_fractionation(results)
+    all_traces = display_graph_fractionation(results)
+    return all_traces
 
 
 """Réalise et interprete le test statistique wilcoxons sur les blocs de synténie"""
