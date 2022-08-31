@@ -12,12 +12,13 @@ print_usage() {
 print_options() {
 	printf "\nUSAGE\n\t$0 [OPTIONS]\n \
 	\nOPTIONS \
-	\n\t-a : force all reexecution, same as -bip \
-	\n\t-b : force blast et blastdb reexecution \
-	\n\t-i : force i-ADHoRe reexecution \
-	\n\t-p : force Python reexecution \
-	\n\t-t : test, execute in directories_test\
-	\n\t-h : display options \
+	\n\t-a : force toutes les réexécutions (all), identique à -bip \
+	\n\t-b : force les réexécutions de blast et makeblastdb \
+	\n\t-i : force la réexécution de i-ADHoRe \
+	\n\t-p : force la réexécution de Python \
+	\n\t-t : test, exécute le script dans des dossiers avec l'extension _test\
+	\n\t-n : réalise un blastn avec les fichiers fasta nucléotidiques plutot qu'un blastp avec les fichiers fasta protéiques \
+	\n\t-h : affiche les options \
 	\n\n"
 	exit 0
 }
