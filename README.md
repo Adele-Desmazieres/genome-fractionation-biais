@@ -31,13 +31,14 @@ conda create -c thiesgehrmann -c bioconda -c conda-forge -n iadhore_env iadhore
 
 ## Input files
 Dans le dossier **data** :
-- le protéome de Malus domestica au format .fasta avec le nom `Malus-domestica-proteome.fasta`
-- le protéome de Prunus persica au format .fasta avec le nom `Prunus-persica-proteome.fasta`
 - un dossier **MD_lst** contenant :
   - la liste des gènes de Malus domestica, sous la forme `Md01.lst`, `Md02.lst`, ... `Md17.lst`
 - un dossie **PP_lst** contenant :
   - la liste des gènes de Prunus persica, sous la forme `Pp01.lst`, `Pp02.lst`, ... `Pp08.lst`
-
+- le protéome de Malus domestica au format .fasta avec le nom `Malus-domestica-prot.fasta`
+- le protéome de Prunus persica au format .fasta avec le nom `Prunus-persica-prot.fasta`
+- éventuellement le génomes de Malus domestica au format .fasta avec le nom `Malus-domestica-nucl.fasta`
+- éventuellement le génomes de Prunus persica au format .fasta avec le nom `Prunus-persica-nucl.fasta`
 ## Utilisation
 ### Lancement
 1. Dans un terminal, se connecter au serveur de calcul par ssh. 
@@ -67,8 +68,13 @@ mkdir "data" "log"
 ./main.sh
 ```
 
+6. bis. Lancer le programme sur les génomes plutôt que les protéomes :
+```bash
+./main.sh -n
+```
+
 ### Résultats
-Les résultats finaux sont dans le dossier **results/python/**. 
+Les résultats sont dans le dossier **results/python/**. 
 
 Les résultats intermédiaires sont dans **database/**, **results/blast/** et **results/iadhore/**. 
 
@@ -83,6 +89,13 @@ Afficher les options disponibles :
 Forcer la réexécution de toutes les tâches :
 ```bash
 ./main.sh -a
+```
+
+Forcer la réexécution de certaines tâches avec -b -i -p ou n'importe quelle combinaison des trois :
+```
+./main.sh -b    # makeblastdb et blast
+./main.sh -i    # iadhore
+./main.sh -p    # python
 ```
 
 ## Author
