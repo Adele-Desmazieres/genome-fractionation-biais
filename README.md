@@ -16,12 +16,12 @@ The goal of this project is to measure the fractionation biais between homologou
 - i-ADHoRe 3.0.01
 - blastp 2.11.0
 
-## Installation
+## Installation à destination du personnel de l'IRHS INRAE Angers
 Télécharger le projet [Genome Fractionation Biais - IRHS](https://forgemia.inra.fr/irhs-bioinfo/genome-fractionation-biais) dans votre espace de stockage local. 
 
 Copier ce projet de votre espace de stockage local sur le cluster de calcul. 
 ```bash
-scp -r [path/to/]genome-fractionation-biais [user]@cluster-irhs.angers-nantes.inrae.fr:~
+scp -r [path/to/]genome-fractionation-biais [user]@[cluster]:~
 ```
 
 Création d'un environnement i-ADHoRe 3 grâce à conda. 
