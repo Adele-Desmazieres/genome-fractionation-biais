@@ -1,0 +1,221 @@
+chromosomes triplets :
+       PP   MD1   MD2 anchorpoints_1 anchorpoints_2
+0   Pp01  Md13  Md16           1534           1520
+1   Pp01  Md08  Md15           1254           1488
+2   Pp01  Md02  Md15            152           1488
+3   Pp02  Md02  Md07            476           1543
+4   Pp02  Md01  Md07           1134           1543
+5   Pp03  Md09  Md17           1472           1410
+6   Pp04  Md03  Md11            530            512
+7   Pp04  Md05  Md10            786            865
+8   Pp05  Md06  Md14           1262            890
+9   Pp05  Md06  Md16           1262            229
+10  Pp06  Md03  Md11            810            829
+11  Pp06  Md04  Md12            900            911
+12  Pp06  Md01  Md07            334            195
+13  Pp06  Md01  Md15            334            352
+14  Pp07  Md02  Md15            868            981
+15  Pp07  Md12  Md14            508            469
+16  Pp08  Md05  Md10            929            900
+17  Pp08  Md03  Md11            238            234 
+
+Python main: running...
+PP : Pp01
+MD1 : Md02
+MD2 : Md15
+anchorpoints_1 : 152
+anchorpoints_2 : 1488
+
+WilcoxonResult(statistic=0.0, pvalue=1.3838040077628236e-148)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp01
+MD1 : Md08
+MD2 : Md15
+anchorpoints_1 : 1254
+anchorpoints_2 : 1488
+
+WilcoxonResult(statistic=455930.0, pvalue=3.3687939639224964e-142)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp01
+MD1 : Md13
+MD2 : Md16
+anchorpoints_1 : 1534
+anchorpoints_2 : 1520
+
+WilcoxonResult(statistic=1527247.0, pvalue=6.083905754473708e-11)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp02
+MD1 : Md01
+MD2 : Md07
+anchorpoints_1 : 1134
+anchorpoints_2 : 1543
+
+WilcoxonResult(statistic=666753.0, pvalue=4.6112323665355156e-10)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp02
+MD1 : Md02
+MD2 : Md07
+anchorpoints_1 : 476
+anchorpoints_2 : 1543
+
+WilcoxonResult(statistic=407250.0, pvalue=6.224925890804482e-16)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp03
+MD1 : Md09
+MD2 : Md17
+anchorpoints_1 : 1472
+anchorpoints_2 : 1410
+
+WilcoxonResult(statistic=1516186.5, pvalue=7.469698307619941e-45)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp04
+MD1 : Md03
+MD2 : Md11
+anchorpoints_1 : 530
+anchorpoints_2 : 512
+
+WilcoxonResult(statistic=502205.0, pvalue=1.0822110310901902e-10)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp04
+MD1 : Md05
+MD2 : Md10
+anchorpoints_1 : 786
+anchorpoints_2 : 865
+
+WilcoxonResult(statistic=355459.5, pvalue=6.1488286083882324e-74)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp05
+MD1 : Md06
+MD2 : Md14
+anchorpoints_1 : 1262
+anchorpoints_2 : 890
+
+WilcoxonResult(statistic=379244.0, pvalue=1.3030196049306332e-18)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp05
+MD1 : Md06
+MD2 : Md16
+anchorpoints_1 : 1262
+anchorpoints_2 : 229
+
+WilcoxonResult(statistic=0.0, pvalue=2.8879998865278188e-239)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp06
+MD1 : Md01
+MD2 : Md07
+anchorpoints_1 : 334
+anchorpoints_2 : 195
+
+WilcoxonResult(statistic=174672.0, pvalue=3.117989469524766e-33)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp06
+MD1 : Md01
+MD2 : Md15
+anchorpoints_1 : 334
+anchorpoints_2 : 352
+
+WilcoxonResult(statistic=8695.5, pvalue=1.2839085416794818e-38)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp06
+MD1 : Md03
+MD2 : Md11
+anchorpoints_1 : 810
+anchorpoints_2 : 829
+
+WilcoxonResult(statistic=683606.0, pvalue=5.333679543013692e-15)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp06
+MD1 : Md04
+MD2 : Md12
+anchorpoints_1 : 900
+anchorpoints_2 : 911
+
+WilcoxonResult(statistic=586102.5, pvalue=2.8572099744065385e-16)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp07
+MD1 : Md02
+MD2 : Md15
+anchorpoints_1 : 868
+anchorpoints_2 : 981
+
+WilcoxonResult(statistic=114137.5, pvalue=4.7524674657447987e-126)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp07
+MD1 : Md12
+MD2 : Md14
+anchorpoints_1 : 508
+anchorpoints_2 : 469
+
+WilcoxonResult(statistic=204661.5, pvalue=1.0585007103371336e-26)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp08
+MD1 : Md03
+MD2 : Md11
+anchorpoints_1 : 238
+anchorpoints_2 : 234
+
+WilcoxonResult(statistic=25272.5, pvalue=0.4179735654010025)
+TEST NON SIGNIFICATIF : il n'existe pas de biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+PP : Pp08
+MD1 : Md05
+MD2 : Md10
+anchorpoints_1 : 929
+anchorpoints_2 : 900
+
+WilcoxonResult(statistic=1066605.0, pvalue=0.0008912187545047289)
+TEST SIGNIFICATIF : il existe un biais de fractionnement au risque alpha=0.05. 
+
+==========================================
+
+Python main: done.
